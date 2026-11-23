@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   publish:
-    if: vars.MODRINTH_PROJECT_ID != ''
+    if: vars.MODRINTH_PROJECT_ID != '' || vars.MODRINTH_PROJECT_SLUG != '' || vars.MODRINTH_PROJECT_URL != ''
     name: "Modrinth: ${{ matrix.loader }}"
     runs-on: ubuntu-latest
     strategy:
@@ -29,6 +29,8 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
       MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID }}
+      MODRINTH_PROJECT_SLUG: ${{ vars.MODRINTH_PROJECT_SLUG }}
+      MODRINTH_PROJECT_URL: ${{ vars.MODRINTH_PROJECT_URL }}
       MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
       LOADER: ${{ matrix.loader }}
     steps:
@@ -51,20 +53,28 @@ jobs:
             --pattern SHA256SUMS --dir dist
           (cd dist && sha256sum -c SHA256SUMS --ignore-missing)
           test -f "dist/$file"
-      - name: Confirm Modrinth project belongs to LMFT-recrafted
+      - name: Resolve Modrinth slug to canonical project ID
         shell: bash
         run: |
           set -euo pipefail
+          # GET /v2/project/{id|slug} accepts an ID or slug. The version
+          # upload API requires the canonical project ID from the response.
+          lookup="$(python3 release/modrinth_project.py lookup \
+            --id "$MODRINTH_PROJECT_ID" \
+            --slug "$MODRINTH_PROJECT_SLUG" \
+            --url "$MODRINTH_PROJECT_URL")"
           curl --fail-with-body --silent --show-error \
             -H "Authorization: $MODRINTH_TOKEN" \
             -H "User-Agent: qwasdf-1/LMFT-recrafted-github-publisher" \
-            "https://api.modrinth.com/v2/project/$MODRINTH_PROJECT_ID" > "$RUNNER_TEMP/project.json"
-          jq -e --arg expected "https://github.com/$GH_REPO" \
-            '(.source_url | sub("/$"; "")) == $expected' "$RUNNER_TEMP/project.json" >/dev/null || {
-            echo "Modrinth source URL must point to https://github.com/$GH_REPO; refusing to upload" >&2
-            exit 1
-          }
-          jq -er 'select(.id != null) | "Publishing to Modrinth project \(.slug) (\(.id))"' "$RUNNER_TEMP/project.json"
+            "https://api.modrinth.com/v2/project/$lookup" > "$RUNNER_TEMP/project.json"
+          canonical="$(python3 release/modrinth_project.py verify \
+            --id "$MODRINTH_PROJECT_ID" \
+            --slug "$MODRINTH_PROJECT_SLUG" \
+            --url "$MODRINTH_PROJECT_URL" \
+            --expected-source "https://github.com/$GH_REPO" \
+            --project-json "$RUNNER_TEMP/project.json")"
+          echo "RESOLVED_MODRINTH_PROJECT_ID=$canonical" >> "$GITHUB_ENV"
+          jq -er 'select(.id != null and .slug != null) | "Publishing to Modrinth project \\(.slug) (\\(.id))"' "$RUNNER_TEMP/project.json"
       - name: Upload or verify existing version
         shell: bash
         run: |
@@ -76,13 +86,15 @@ jobs:
           expected_sha512="$(sha512sum "dist/$JAR_NAME" | cut -d' ' -f1)"
           http="$(curl --silent --show-error --output "$RUNNER_TEMP/existing.json" --write-out '%{http_code}' \
             -H "User-Agent: qwasdf-1/LMFT-recrafted-github-publisher" \
-            "https://api.modrinth.com/v2/project/$MODRINTH_PROJECT_ID/version/$number")"
+            "https://api.modrinth.com/v2/project/$RESOLVED_MODRINTH_PROJECT_ID/version/$number")"
           if [[ "$http" == 200 ]]; then
             if jq -e --arg version "$number" --arg name "$name" \
                 --arg loader "$LOADER" --arg sha "$expected_sha512" \
+                --arg project "$RESOLVED_MODRINTH_PROJECT_ID" \
                 --arg channel "$channel" --argjson games "$game_versions" \
                 --arg jar "$JAR_NAME" \
                 '.version_number == $version and .name == $name
+                 and .project_id == $project
                  and .game_versions == $games and .loaders == [$loader]
                  and .version_type == $channel and .environment == "server_only"
                  and .status == "listed" and (.dependencies | length) == 0
@@ -100,7 +112,7 @@ jobs:
           fi
           jq -n --rawfile changelog "$RUNNER_TEMP/notes.md" \
             --arg name "$name" --arg number "$number" --arg loader "$LOADER" \
-            --arg project "$MODRINTH_PROJECT_ID" --arg channel "$channel" \
+            --arg project "$RESOLVED_MODRINTH_PROJECT_ID" --arg channel "$channel" \
             --argjson games "$game_versions" \
             '{name:$name,version_number:$number,changelog:$changelog,
               dependencies:[],game_versions:$games,version_type:$channel,
