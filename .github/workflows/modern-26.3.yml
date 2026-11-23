@@ -77,3 +77,64 @@ jobs:
         with:
           name: lmft-neoforge-26.3
           path: modern/26.3/neoforge/build/libs/*.jar
+
+
+  server-smoke:
+    name: "Dedicated server smoke (${{ matrix.loader }})"
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - loader: fabric
+            gradle: '9.8.2'
+          - loader: neoforge
+            gradle: '9.2.1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: ${{ matrix.gradle }}
+      - name: Prepare test world with required missing entries
+        shell: bash
+        run: |
+          set -euo pipefail
+          mod_dir="modern/26.3/${{ matrix.loader }}"
+          mkdir -p "$mod_dir/run/world/datapacks/lmft-recovery-test"
+          cp -R modern/26.3/testdata/. "$mod_dir/run/world/datapacks/lmft-recovery-test/"
+          printf 'eula=true\\n' > "$mod_dir/run/eula.txt"
+          printf 'level-name=world\\nonline-mode=false\\nmax-tick-time=-1\\n' > "$mod_dir/run/server.properties"
+      - name: Start server and assert LMFT recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          mod_dir="modern/26.3/${{ matrix.loader }}"
+          status=0
+          timeout --signal=TERM --kill-after=15s 240s \
+            gradle -p "$mod_dir" runServer --console=plain > "$mod_dir/server-smoke.log" 2>&1 || status=$?
+          tail -n 150 "$mod_dir/server-smoke.log"
+          if [[ "$status" != "0" && "$status" != "124" ]]; then
+            echo "Server/Gradle exited unexpectedly: $status"
+            exit 1
+          fi
+          grep -q "Couldn't load certain entries within tag lmft_test:recovery:" "$mod_dir/server-smoke.log"
+          grep -q "Couldn't load certain entries within tag lmft_test:missing_tag_reference:" "$mod_dir/server-smoke.log"
+          if grep -q "Couldn't load certain entries within tag lmft_test:optional:" "$mod_dir/server-smoke.log"; then
+            echo 'Optional missing entries should not trigger LMFT recovery'
+            exit 1
+          fi
+          grep -q 'Done (' "$mod_dir/server-smoke.log"
+          echo "LMFT ${{ matrix.loader }} 26.3 dedicated server smoke passed"
+      - name: Upload server output for debugging
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lmft-server-log-${{ matrix.loader }}
+          path: |
+            modern/26.3/${{ matrix.loader }}/server-smoke.log
+            modern/26.3/${{ matrix.loader }}/run/logs/latest.log
