@@ -24,6 +24,11 @@ dependencies {
 }
 
 processResources {
+
+    // Keep upstream CC0 notices alongside the Apache-licensed additions.
+    from('../../../LICENSE') { into 'META-INF' }
+    from('../../../NOTICE') { into 'META-INF' }
+    from('../../../LICENSES/CC0-1.0.txt') { into 'META-INF/licenses' }
     inputs.property 'version', project.version
     inputs.property 'minecraft_range', compatibleMinecraft
     filesMatching('fabric.mod.json') {

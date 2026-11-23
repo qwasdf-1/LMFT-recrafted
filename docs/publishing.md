@@ -85,11 +85,15 @@ an interrupted upload.
 
 ## Licensing
 
-The original LMFT `LICENSE` is **CC0-1.0**, a public-domain dedication.
-The publishing work does not change this. Apache-2.0 is a possible new
-license for LMFT-recrafted contributions, but the original CC0 terms and
-attribution should remain documented and marketplace license settings should
-be aligned only once that decision is finalized.
+The project has finalized **Apache-2.0 for LMFT-recrafted contributions**
+and retained the original upstream **CC0-1.0** dedication separately:
+`LICENSE` is Apache License 2.0, `LICENSES/CC0-1.0.txt` is the unmodified
+upstream license, and `NOTICE` credits original author **Blodhgarm** and
+links the original source. Built JARs include all three documents under
+`META-INF`. Update the license on each new Modrinth and CurseForge project
+to **Apache License 2.0** before its first public upload; retain the
+upstream CC0 notice in the source and released JARs. This is a fork, not a
+relicensing of the original author's upstream project.
 
 ## Dry-run checks
 

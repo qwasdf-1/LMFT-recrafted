@@ -43,7 +43,11 @@ upload to marketplaces.
 
 ### License
 
-The original LMFT source code was published under the **CC0-1.0** public-domain
-dedication, which this branch currently preserves. Any later switch to
-Apache-2.0 for our contributions requires updating the LICENSE, metadata,
-and marketplace project listings together, while preserving upstream notices.
+**LMFT-recrafted contributions and modifications are licensed under Apache-2.0**
+(see [LICENSE](LICENSE)). The original Load My F***ing Tags code and resources
+were released under **CC0-1.0 Universal** and retain their original dedication
+([LICENSES/CC0-1.0.txt](LICENSES/CC0-1.0.txt)).
+
+We credit **Blodhgarm**, the original author, and preserve the upstream source
+link in [NOTICE](NOTICE). This independent continuation is not endorsed by the
+original author. Both license texts and the notice are bundled with releases.

@@ -39,6 +39,18 @@ dependencies {
 }
 
 processResources {
+
+    // Ship both the fork's Apache license and the original upstream CC0
+    // dedication in distributable runtime jars.
+    from(rootProject.file('LICENSE')) {
+        into 'META-INF'
+    }
+    from(rootProject.file('NOTICE')) {
+        into 'META-INF'
+    }
+    from(rootProject.file('LICENSES/CC0-1.0.txt')) {
+        into 'META-INF/licenses'
+    }
     inputs.property "version", project.version
 
     filesMatching("META-INF/neoforge.mods.toml") {

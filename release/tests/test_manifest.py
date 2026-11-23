@@ -36,6 +36,18 @@ class ManifestTests(unittest.TestCase):
     def test_release_notes(self):
         self.assertIn("Minecraft 26.1", manifest.notes(manifest.config()[0]))
 
+    def test_license_and_upstream_attribution(self):
+        root = manifest.ROOT
+        apache = (root / "LICENSE").read_text(encoding="utf-8")
+        cc0 = (root / "LICENSES/CC0-1.0.txt").read_text(encoding="utf-8")
+        notice = (root / "NOTICE").read_text(encoding="utf-8")
+        self.assertIn("Apache License", apache)
+        self.assertIn("Version 2.0, January 2004", apache)
+        self.assertIn("CC0 1.0 Universal", cc0)
+        self.assertIn("Blodhgarm", notice)
+        self.assertIn("Dragon-Seeker/LoadMyFingTags", notice)
+        self.assertIn("Apache", notice)
+
     def test_checksums(self):
         with tempfile.TemporaryDirectory() as d:
             path = Path(d) / "file"

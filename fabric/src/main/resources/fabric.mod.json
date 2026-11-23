@@ -5,13 +5,14 @@
   "name": "Load My F***ing Tags",
   "description": "Simple mod that makes Tag Loading less of a Pain",
   "authors": [
-    "Blodhgarm"
+    "Blodhgarm",
+    "LMFT-recrafted contributors"
   ],
   "contact": {
     "homepage": "",
-    "sources": "https://github.com/Dragon-Seeker/LoadMyFuckingTags"
+    "sources": "https://github.com/qwasdf-1/LMFT-recrafted"
   },
-  "license": "CC0-1.0",
+  "license": "Apache-2.0",
   "icon": "assets/lmft/icon.png",
   "environment": "*",
   "entrypoints": {},

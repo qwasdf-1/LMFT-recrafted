@@ -10,5 +10,6 @@ Initial preview of LMFT-recrafted's independently maintained Minecraft 26.x line
 - Verify one shared Fabric artifact and one shared NeoForge artifact against all five releases.
 - Correct operator-only warning filtering and verify player notifications on both loaders.
 - Add regression tests for reloads, missing optional references and NeoForge tag removals.
+- License LMFT-recrafted contributions under Apache-2.0; preserve original CC0-1.0 text and author credit.
 
 **This is an alpha release candidate.** Review the runtime tests and confirm marketplace project setup before creating the first version tag.
