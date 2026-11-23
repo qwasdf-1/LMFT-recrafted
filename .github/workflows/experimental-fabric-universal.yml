@@ -22,31 +22,26 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.8.2'
-      - name: Compile once against Minecraft 26.3
-        run: gradle -p modern/26.3/fabric build --console=plain
-      - name: Produce isolated universal metadata experiment
+      - name: Build one universal-range Fabric JAR directly
+        run: |
+          gradle -p modern/26.3/fabric build --console=plain \
+            -Pminecraft_range='>=26.1 <26.4' \
+            -Pmod_version='1.2.0-alpha.1+26.x-universal-test'
+      - name: Verify generated metadata and stage JAR
         shell: bash
         run: |
           python3 - <<'PY'
           import json
           from pathlib import Path
           from zipfile import ZipFile
-
-          jars = [
-              p for p in Path("modern/26.3/fabric/build/libs").glob("*.jar")
-              if not p.name.endswith("-sources.jar")
-          ]
+          jars = [p for p in Path("modern/26.3/fabric/build/libs").glob("*.jar")
+                  if not p.name.endswith("-sources.jar")]
           assert len(jars) == 1, jars
-          with ZipFile(jars[0]) as source, ZipFile("fabric-universal-candidate.jar", "w") as output:
-              for info in source.infolist():
-                  data = source.read(info.filename)
-                  if info.filename == "fabric.mod.json":
-                      metadata = json.loads(data)
-                      metadata["version"] = "1.2.0-alpha.1+26.x-universal-test"
-                      metadata["depends"]["minecraft"] = ">=26.1 <26.4"
-                      data = (json.dumps(metadata, indent=2) + "\n").encode()
-                  output.writestr(info, data)
-          print("Single Fabric 26.3-compiled candidate prepared (test metadata only)")
+          with ZipFile(jars[0]) as jar:
+              meta = json.loads(jar.read("fabric.mod.json"))
+              assert meta["depends"]["minecraft"] == ">=26.1 <26.4", meta
+          Path("fabric-universal-candidate.jar").write_bytes(jars[0].read_bytes())
+          print("Universal Fabric metadata generated directly by Gradle")
           PY
       - uses: actions/upload-artifact@v4
         with:

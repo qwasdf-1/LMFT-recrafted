@@ -16,13 +16,13 @@ config = "lmft-26.3.mixins.json"
 [[dependencies.lmft]]
 modId = "neoforge"
 type = "required"
-versionRange = "[${neo_version},)"
+versionRange = "${neoforge_range}"
 ordering = "NONE"
 side = "BOTH"
 
 [[dependencies.lmft]]
 modId = "minecraft"
 type = "required"
-versionRange = "[${minecraft_version}]"
+versionRange = "${minecraft_range}"
 ordering = "NONE"
 side = "BOTH"

@@ -7,8 +7,15 @@ plugins {
 version = mod_version
 group = 'io.wispforest'
 
+// The default is an exact Minecraft version. Wide ranges are opt-in and
+// should only be used for a validated cross-version release.
+def compatibleMinecraft = project.hasProperty('minecraft_range')
+    ? project.property('minecraft_range').toString() : "[${minecraft_version}]"
+def compatibleNeoForge = project.hasProperty('neoforge_range')
+    ? project.property('neoforge_range').toString() : "[${neo_version},)"
+
 base {
-    archivesName = "lmft-neoforge-${minecraft_version}"
+    archivesName = project.hasProperty("minecraft_range") ? "lmft-neoforge-26.x" : "lmft-neoforge-${minecraft_version}"
 }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(25)
@@ -35,10 +42,10 @@ neoForge {
 
 processResources {
     inputs.property 'version', project.version
-    inputs.property 'minecraft_version', minecraft_version
-    inputs.property 'neo_version', neo_version
+    inputs.property 'minecraft_range', compatibleMinecraft
+    inputs.property 'neoforge_range', compatibleNeoForge
     filesMatching('META-INF/neoforge.mods.toml') {
-        expand version: project.version, minecraft_version: minecraft_version, neo_version: neo_version
+        expand version: project.version, minecraft_range: compatibleMinecraft, neoforge_range: compatibleNeoForge
     }
     from('../../../common/src/main/resources/assets') {
         into 'assets'

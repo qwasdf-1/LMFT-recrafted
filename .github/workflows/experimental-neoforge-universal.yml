@@ -22,41 +22,26 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.2.1'
-      - name: Compile once against Minecraft and NeoForge 26.3
-        run: gradle -p modern/26.3/neoforge build --console=plain
-      - name: Produce universal-metadata experiment without recompiling
+      - name: Build one universal-range NeoForge JAR directly
+        run: |
+          gradle -p modern/26.3/neoforge build --console=plain \
+            -Pminecraft_range='[26.1,26.4)' \
+            -Pneoforge_range='[26.1.0.19-beta,)' \
+            -Pmod_version='1.2.0-alpha.1+26.x-universal-test'
+      - name: Verify generated metadata and stage JAR
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile
-
           jars = list(Path("modern/26.3/neoforge/build/libs").glob("*.jar"))
           assert len(jars) == 1, jars
-          with ZipFile(jars[0]) as source, ZipFile("neoforge-universal-candidate.jar", "w") as output:
-              for info in source.infolist():
-                  data = source.read(info.filename)
-                  if info.filename == "META-INF/neoforge.mods.toml":
-                      metadata = data.decode()
-                      expected = [
-                          'versionRange = "[26.3.0.115,)"',
-                          'versionRange = "[26.3]"',
-                      ]
-                      for token in expected:
-                          assert token in metadata, (token, metadata)
-                      metadata = metadata.replace(
-                          'versionRange = "[26.3.0.115,)"',
-                          'versionRange = "[26.1.0.19-beta,)"'
-                      ).replace(
-                          'versionRange = "[26.3]"',
-                          'versionRange = "[26.1,26.4)"'
-                      ).replace(
-                          'version = "1.2.0-alpha.1+26.3"',
-                          'version = "1.2.0-alpha.1+26.x-universal-test"'
-                      )
-                      data = metadata.encode()
-                  output.writestr(info, data)
-          print("One NeoForge 26.3-compiled candidate with widened test metadata")
+          with ZipFile(jars[0]) as jar:
+              meta = jar.read("META-INF/neoforge.mods.toml").decode()
+              assert 'versionRange = "[26.1,26.4)"' in meta, meta
+              assert 'versionRange = "[26.1.0.19-beta,)"' in meta, meta
+          Path("neoforge-universal-candidate.jar").write_bytes(jars[0].read_bytes())
+          print("Universal NeoForge metadata generated directly by Gradle")
           PY
       - uses: actions/upload-artifact@v4
         with:

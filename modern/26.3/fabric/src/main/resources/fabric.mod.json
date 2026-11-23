@@ -17,7 +17,7 @@
   "mixins": ["lmft-26.3.mixins.json"],
   "depends": {
     "fabricloader": ">=0.20.1",
-    "minecraft": "${minecraft_version}",
+    "minecraft": "${minecraft_range}",
     "java": ">=25"
   }
 }

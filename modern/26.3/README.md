@@ -1,6 +1,6 @@
-# LMFT Minecraft 26.3 implementation (Fabric and NeoForge)
+# LMFT modern Minecraft 26.x implementation (Fabric and NeoForge)
 
-**Status: Minecraft 26.3 builds and dedicated-server smoke tests passed; remaining 26.x versions under evaluation.**
+**Status: both loaders passed real-server membership, reload and NeoForge removal tests on 26.1, 26.1.1, 26.1.2, 26.2 and 26.3.**
 The existing Minecraft 1.21.11 Architectury build at repository root is unchanged.
 
 ## Project layout
@@ -84,6 +84,38 @@ advertising an untested range.
 
 The `modern-26.x-compatibility.yml` workflow builds and runs Minecraft 26.1,
 26.1.1, 26.1.2 and 26.2 with version-matched NeoForge dependencies and datapack
-formats. CI status, not the existence of this build target, determines whether
-a particular release is supported. The folder name `modern/26.3` is historical;
-it currently hosts the shared 26.x source while version compatibility is tested.
+formats. Together with the 26.3 CI, all ten configurations passed real server
+tag-membership and repeated-reload tests on November 23, 2026.
+The folder name `modern/26.3` is historical; it hosts the shared 26.x source.
+
+## Opt-in single-JAR 26.x artifacts
+
+Standalone-server cross-loading tests installed *one compiled JAR* per loader
+on **all five** stable 26.x releases and passed full recovery/reload tests.
+See the experimental Fabric run (https://github.com/qwasdf-1/LMFT-recrafted/actions/runs/45262108847)
+and NeoForge run (https://github.com/qwasdf-1/LMFT-recrafted/actions/runs/45262555701).
+
+The normal build remains version-pinned. To produce universal-range release
+candidates directly through Gradle, use JDK 25 and the appropriate Gradle version:
+
+```bash
+gradle -p modern/26.3/fabric build \\
+  -Pminecraft_range='>=26.1 <26.4' \\
+  -Pmod_version='1.2.0-alpha.1+26.x'
+
+gradle -p modern/26.3/neoforge build \\
+  -Pminecraft_range='[26.1,26.4)' \\
+  -Pneoforge_range='[26.1.0.19-beta,)' \\
+  -Pmod_version='1.2.0-alpha.1+26.x'
+```
+
+Both compile against Minecraft 26.3 and produce separately named Fabric or
+NeoForge `26.x` artifacts. No extra Fabric API dependency is required.
+The validation workflows still retain exact-version builds as a regression
+control. Widening version metadata outside the tested set requires new server
+tests; 26.4 is not included.
+
+Before publishing a full release, manually validate connected-player chat
+notifications and operator-only filtering as described in
+`docs/26.x-verification-checklist.md`. The headless server tests cannot
+verify actual client chat delivery.
