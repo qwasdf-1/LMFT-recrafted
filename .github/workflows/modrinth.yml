@@ -1,0 +1,122 @@
+name: Publish LMFT to Modrinth
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing GitHub Release tag, for example v1.2.0-alpha.1"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lmft-modrinth-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: vars.MODRINTH_PROJECT_ID != ''
+    name: "Modrinth: ${{ matrix.loader }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        loader: [fabric, neoforge]
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      MODRINTH_PROJECT_ID: ${{ vars.MODRINTH_PROJECT_ID }}
+      MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+      LOADER: ${{ matrix.loader }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - name: Verify immutable GitHub Release asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$MODRINTH_TOKEN" || { echo "Missing MODRINTH_TOKEN secret" >&2; exit 1; }
+          version="$(python3 release/manifest.py version --tag "$RELEASE_TAG")"
+          file="$(python3 release/manifest.py file --loader "$LOADER")"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "JAR_NAME=$file" >> "$GITHUB_ENV"
+          gh release view "$RELEASE_TAG" --json body --jq .body > "$RUNNER_TEMP/notes.md"
+          test -s "$RUNNER_TEMP/notes.md"
+          mkdir -p dist
+          gh release download "$RELEASE_TAG" --pattern "$file" \
+            --pattern SHA256SUMS --dir dist
+          (cd dist && sha256sum -c SHA256SUMS --ignore-missing)
+          test -f "dist/$file"
+      - name: Confirm Modrinth project belongs to LMFT-recrafted
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error \
+            -H "Authorization: $MODRINTH_TOKEN" \
+            -H "User-Agent: qwasdf-1/LMFT-recrafted-github-publisher" \
+            "https://api.modrinth.com/v2/project/$MODRINTH_PROJECT_ID" > "$RUNNER_TEMP/project.json"
+          jq -e --arg expected "https://github.com/$GH_REPO" \
+            '(.source_url | sub("/$"; "")) == $expected' "$RUNNER_TEMP/project.json" >/dev/null || {
+            echo "Modrinth source URL must point to https://github.com/$GH_REPO; refusing to upload" >&2
+            exit 1
+          }
+          jq -er 'select(.id != null) | "Publishing to Modrinth project \(.slug) (\(.id))"' "$RUNNER_TEMP/project.json"
+      - name: Upload or verify existing version
+        shell: bash
+        run: |
+          set -euo pipefail
+          channel="$(python3 release/manifest.py channel)"
+          game_versions="$(python3 release/manifest.py games)"
+          number="$VERSION-$LOADER"
+          name="LMFT-recrafted $VERSION (Minecraft 26.x, $LOADER)"
+          expected_sha512="$(sha512sum "dist/$JAR_NAME" | cut -d' ' -f1)"
+          http="$(curl --silent --show-error --output "$RUNNER_TEMP/existing.json" --write-out '%{http_code}' \
+            -H "User-Agent: qwasdf-1/LMFT-recrafted-github-publisher" \
+            "https://api.modrinth.com/v2/project/$MODRINTH_PROJECT_ID/version/$number")"
+          if [[ "$http" == 200 ]]; then
+            if jq -e --arg version "$number" --arg name "$name" \
+                --arg loader "$LOADER" --arg sha "$expected_sha512" \
+                --arg channel "$channel" --argjson games "$game_versions" \
+                --arg jar "$JAR_NAME" \
+                '.version_number == $version and .name == $name
+                 and .game_versions == $games and .loaders == [$loader]
+                 and .version_type == $channel and .environment == "server_only"
+                 and .status == "listed" and (.dependencies | length) == 0
+                 and any(.files[]; .filename == $jar and .primary == true and .hashes.sha512 == $sha)' \
+                "$RUNNER_TEMP/existing.json" >/dev/null; then
+              echo "Modrinth $number matches existing upload; skipping."
+              exit 0
+            fi
+            echo "Conflicting Modrinth version $number already exists; aborting" >&2
+            exit 1
+          elif [[ "$http" != 404 ]]; then
+            echo "Could not check Modrinth version $number (HTTP $http)" >&2
+            cat "$RUNNER_TEMP/existing.json" >&2
+            exit 1
+          fi
+          jq -n --rawfile changelog "$RUNNER_TEMP/notes.md" \
+            --arg name "$name" --arg number "$number" --arg loader "$LOADER" \
+            --arg project "$MODRINTH_PROJECT_ID" --arg channel "$channel" \
+            --argjson games "$game_versions" \
+            '{name:$name,version_number:$number,changelog:$changelog,
+              dependencies:[],game_versions:$games,version_type:$channel,
+              loaders:[$loader],environment:"server_only",
+              featured:false,status:"listed",project_id:$project,
+              file_parts:["modfile"],primary_file:"modfile"}' \
+            > "$RUNNER_TEMP/upload.json"
+          http="$(curl --silent --show-error --output "$RUNNER_TEMP/response.json" --write-out '%{http_code}' \
+            -H "Authorization: $MODRINTH_TOKEN" \
+            -H "User-Agent: qwasdf-1/LMFT-recrafted-github-publisher" \
+            -F "data=@$RUNNER_TEMP/upload.json;type=application/json" \
+            -F "modfile=@dist/$JAR_NAME" \
+            "https://api.modrinth.com/v2/version")"
+          if [[ ! "$http" =~ ^2[0-9][0-9]$ ]]; then
+            echo "Modrinth upload failed (HTTP $http)" >&2
+            cat "$RUNNER_TEMP/response.json" >&2
+            exit 1
+          fi
+          jq -er 'select(.id and .version_number) | "Published Modrinth version \(.version_number) (\(.id))"' "$RUNNER_TEMP/response.json"
