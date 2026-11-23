@@ -8,7 +8,7 @@ version = mod_version
 group = 'io.wispforest'
 
 base {
-    archivesName = 'lmft-neoforge-26.3'
+    archivesName = "lmft-neoforge-${minecraft_version}"
 }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(25)
@@ -35,8 +35,10 @@ neoForge {
 
 processResources {
     inputs.property 'version', project.version
+    inputs.property 'minecraft_version', minecraft_version
+    inputs.property 'neo_version', neo_version
     filesMatching('META-INF/neoforge.mods.toml') {
-        expand version: project.version
+        expand version: project.version, minecraft_version: minecraft_version, neo_version: neo_version
     }
     from('../../../common/src/main/resources/assets') {
         into 'assets'

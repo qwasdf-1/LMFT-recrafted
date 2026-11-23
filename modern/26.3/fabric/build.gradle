@@ -7,7 +7,7 @@ version = mod_version
 group = 'io.wispforest'
 
 base {
-    archivesName = 'lmft-fabric-26.3'
+    archivesName = "lmft-fabric-${minecraft_version}"
 }
 
 sourceSets.main.java.srcDir('../common/src/main/java')
@@ -20,8 +20,9 @@ dependencies {
 
 processResources {
     inputs.property 'version', project.version
+    inputs.property 'minecraft_version', minecraft_version
     filesMatching('fabric.mod.json') {
-        expand version: project.version
+        expand version: project.version, minecraft_version: minecraft_version
     }
     // Reuse existing LMFT resources without packaging legacy mixin configs.
     from('../../../common/src/main/resources/assets') {

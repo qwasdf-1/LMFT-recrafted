@@ -1,6 +1,6 @@
 # LMFT Minecraft 26.3 implementation (Fabric and NeoForge)
 
-**Status: implementation ready for build/test; unverified in a running game.**
+**Status: Minecraft 26.3 builds and dedicated-server smoke tests passed; remaining 26.x versions under evaluation.**
 The existing Minecraft 1.21.11 Architectury build at repository root is unchanged.
 
 ## Project layout
@@ -72,3 +72,18 @@ Configuration remains `config/lmft.json`, with keys
 
 For design evidence and known risks, see
 `docs/26.3-tagloader-hook-investigation.md`.
+
+## Other 26.x versions
+
+The same Java sources and build definitions accept `-Pminecraft_version=<version>` to
+recompile for a specific stable 26.x release. For NeoForge, also provide
+`-Pneo_version=<matching NeoForge build>`. Supply `-Pmod_version=<mod release>`
+when producing an artifact for that version. The Fabric and NeoForge metadata
+is expanded to require exactly the selected Minecraft release, rather than
+advertising an untested range.
+
+The `modern-26.x-compatibility.yml` workflow builds and runs Minecraft 26.1,
+26.1.1, 26.1.2 and 26.2 with version-matched NeoForge dependencies and datapack
+formats. CI status, not the existence of this build target, determines whether
+a particular release is supported. The folder name `modern/26.3` is historical;
+it currently hosts the shared 26.x source while version compatibility is tested.
