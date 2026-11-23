@@ -29,3 +29,25 @@ Minecraft 26.x uses **Java 25** and the independent builds under `modern/26.3/`.
 - `.github/workflows/multiplayer-notifications.yml`: two actual connected players, with operator-only, public, disabled and JVM-suppressed warning delivery checks.
 
 These are tested development artifacts; check GitHub Releases for published builds. Do not install the original LMFT and LMFT-recrafted together: both use the `lmft` mod ID.
+
+### Publishing
+
+Releases for Minecraft 26.x are built from signed-off version tags on `main`.
+The release workflow produces **one Fabric JAR and one NeoForge JAR**, adds
+checksums to a GitHub Release and dispatches Modrinth and CurseForge uploads
+when their own marketplace projects and API credentials are configured.
+
+See [automated publishing setup](docs/publishing.md) for the one-time secrets,
+project IDs, release process and retry rules. Development and PR builds never
+upload to marketplaces.
+
+### License
+
+**LMFT-recrafted contributions and modifications are licensed under Apache-2.0**
+(see [LICENSE](LICENSE)). The original Load My F***ing Tags code and resources
+were released under **CC0-1.0 Universal** and retain their original dedication
+([LICENSES/CC0-1.0.txt](LICENSES/CC0-1.0.txt)).
+
+We credit **Blodhgarm**, the original author, and preserve the upstream source
+link in [NOTICE](NOTICE). This independent continuation is not endorsed by the
+original author. Both license texts and the notice are bundled with releases.

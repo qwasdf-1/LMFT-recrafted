@@ -1,0 +1,129 @@
+name: Release universal LMFT 26.x
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: lmft-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      channel: ${{ steps.meta.outputs.channel }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Ensure release tag belongs to main and matches manifest
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git merge-base --is-ancestor HEAD origin/main || {
+            echo "Release tags must point to a commit already merged into main" >&2
+            exit 1
+          }
+          version="$(python3 release/manifest.py version --tag "$GITHUB_REF_NAME")"
+          channel="$(python3 release/manifest.py channel)"
+          python3 release/manifest.py notes > "$RUNNER_TEMP/release-notes.md"
+          python3 -m unittest discover -s release/tests -v
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: validate
+    runs-on: ubuntu-latest
+    name: "Build ${{ matrix.loader }} universal 26.x"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { loader: fabric, gradle: '9.8.2' }
+          - { loader: neoforge, gradle: '9.2.1' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: ${{ matrix.gradle }}
+      - name: Compile one universal runtime JAR
+        shell: bash
+        env:
+          LOADER: ${{ matrix.loader }}
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          args=("-Pmod_version=$VERSION+26.x")
+          case "$LOADER" in
+            fabric)
+              args+=("-Pminecraft_range=>=26.1 <26.4")
+              ;;
+            neoforge)
+              args+=("-Pminecraft_range=[26.1,26.4)" "-Pneoforge_range=[26.1.0.19-beta,)")
+              ;;
+            *) exit 1 ;;
+          esac
+          gradle -p "modern/26.3/$LOADER" clean build "${args[@]}" --console=plain
+          python3 release/manifest.py stage --loader "$LOADER" \
+            --build-dir "modern/26.3/$LOADER/build/libs"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: "lmft-release-${{ matrix.loader }}"
+          path: dist/*.jar
+          if-no-files-found: error
+          retention-days: 7
+
+  github-release:
+    needs: [validate, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: lmft-release-*
+          path: dist
+          merge-multiple: true
+      - name: Validate both runtime JARs and prepare release
+        shell: bash
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          python3 release/manifest.py verify --dist dist
+          python3 release/manifest.py notes > "$RUNNER_TEMP/release-notes.md"
+          test -s "$RUNNER_TEMP/release-notes.md"
+          for jar in dist/*.jar; do
+            unzip -t "$jar" >/dev/null
+          done
+      - name: Create GitHub Release and dispatch marketplace uploads
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.validate.outputs.version }}
+          CHANNEL: ${{ needs.validate.outputs.channel }}
+        run: |
+          set -euo pipefail
+          flags=()
+          if [[ "$CHANNEL" != "release" ]]; then
+            flags+=(--prerelease)
+          else
+            flags+=(--latest)
+          fi
+          gh release create "$GITHUB_REF_NAME" dist/*.jar dist/SHA256SUMS \
+            --verify-tag --title "LMFT-recrafted $VERSION (Minecraft 26.x)" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" "${flags[@]}"
+          gh workflow run modrinth.yml --repo "$GH_REPO" --ref main --field tag="$GITHUB_REF_NAME"
+          gh workflow run curseforge.yml --repo "$GH_REPO" --ref main --field tag="$GITHUB_REF_NAME"
