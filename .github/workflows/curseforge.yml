@@ -1,0 +1,109 @@
+name: Publish LMFT to CurseForge
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing GitHub Release tag, for example v1.2.0-alpha.1"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lmft-curseforge-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: vars.CURSEFORGE_PROJECT_ID != ''
+    name: "CurseForge: ${{ matrix.loader }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        loader: [fabric, neoforge]
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ inputs.tag }}
+      LOADER: ${{ matrix.loader }}
+      CURSEFORGE_PROJECT_ID: ${{ vars.CURSEFORGE_PROJECT_ID }}
+      CURSEFORGE_GAME_VERSIONS: ${{ vars.CURSEFORGE_GAME_VERSIONS }}
+      CURSEFORGE_ENVIRONMENT: ${{ vars.CURSEFORGE_ENVIRONMENT || 'both' }}
+      CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - name: Download and verify GitHub Release artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$CURSEFORGE_PROJECT_ID" =~ ^[1-9][0-9]*$ ]] || {
+            echo "CURSEFORGE_PROJECT_ID must be a numeric project ID" >&2
+            exit 1
+          }
+          # 656346 is the ORIGINAL author's CurseForge listing; this is a separate fork.
+          [[ "$CURSEFORGE_PROJECT_ID" != "656346" ]] || {
+            echo "Refusing to publish to original LMFT CurseForge project 656346" >&2
+            exit 1
+          }
+          test -n "$CURSEFORGE_TOKEN" || { echo "Missing CURSEFORGE_TOKEN secret" >&2; exit 1; }
+          version="$(python3 release/manifest.py version --tag "$RELEASE_TAG")"
+          name="$(python3 release/manifest.py file --loader "$LOADER")"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "JAR_NAME=$name" >> "$GITHUB_ENV"
+          gh release view "$RELEASE_TAG" --json body --jq .body > "$RUNNER_TEMP/notes.md"
+          test -s "$RUNNER_TEMP/notes.md"
+          mkdir -p dist
+          gh release download "$RELEASE_TAG" --pattern "$name" \
+            --pattern SHA256SUMS --dir dist
+          (cd dist && sha256sum -c SHA256SUMS --ignore-missing)
+          test -f "dist/$name"
+      - name: Resolve all tested Minecraft and loader game version IDs
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error \
+            -H "X-Api-Token: $CURSEFORGE_TOKEN" \
+            -H "User-Agent: qwasdf-1/LMFT-recrafted-github-publisher" \
+            https://minecraft.curseforge.com/api/game/versions \
+            > "$RUNNER_TEMP/curseforge-versions.json"
+          python3 release/curseforge_versions.py \
+            --versions "$RUNNER_TEMP/curseforge-versions.json" \
+            --loader "$LOADER" \
+            --overrides "$CURSEFORGE_GAME_VERSIONS" \
+            --environment "$CURSEFORGE_ENVIRONMENT" \
+            > "$RUNNER_TEMP/curseforge-ids.json"
+          jq -e 'length >= 7' "$RUNNER_TEMP/curseforge-ids.json" >/dev/null
+      - name: Publish universal 26.x file to CurseForge
+        shell: bash
+        run: |
+          set -euo pipefail
+          channel="$(python3 release/manifest.py channel)"
+          jq -n --rawfile changelog "$RUNNER_TEMP/notes.md" \
+            --arg name "LMFT-recrafted $VERSION (Minecraft 26.x $LOADER)" \
+            --arg channel "$channel" \
+            --slurpfile ids "$RUNNER_TEMP/curseforge-ids.json" \
+            '{displayName:$name,changelog:$changelog,changelogType:"markdown",
+              releaseType:$channel,gameVersions:$ids[0]}' \
+            > "$RUNNER_TEMP/curseforge-upload.json"
+          http="$(curl --silent --show-error --output "$RUNNER_TEMP/result.json" \
+            --write-out '%{http_code}' \
+            -H "X-Api-Token: $CURSEFORGE_TOKEN" \
+            -H "User-Agent: qwasdf-1/LMFT-recrafted-github-publisher" \
+            -F "metadata=<$RUNNER_TEMP/curseforge-upload.json" \
+            -F "file=@dist/$JAR_NAME" \
+            "https://minecraft.curseforge.com/api/projects/$CURSEFORGE_PROJECT_ID/upload-file")"
+          if [[ ! "$http" =~ ^2[0-9][0-9]$ ]]; then
+            if grep -iqE 'duplicate|already exists' "$RUNNER_TEMP/result.json"; then
+              echo "CurseForge reports an existing file; skipped possible duplicate."
+              exit 0
+            fi
+            echo "CurseForge upload rejected (HTTP $http)" >&2
+            cat "$RUNNER_TEMP/result.json" >&2
+            exit 1
+          fi
+          jq -er 'select(.id != null) | "Published CurseForge file ID \(.id)"' "$RUNNER_TEMP/result.json"
