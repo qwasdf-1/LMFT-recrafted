@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "lmft",
+  "version": "${version}",
+  "name": "Load My F***ing Tags (Recrafted)",
+  "description": "Retains valid tag entries even when required references are missing.",
+  "authors": ["Blodhgarm", "LMFT-recrafted contributors"],
+  "contact": {
+    "sources": "https://github.com/qwasdf-1/LMFT-recrafted"
+  },
+  "license": "CC0-1.0",
+  "icon": "assets/lmft/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["io.wispforest.lmft.fabric.LmftFabric"]
+  },
+  "mixins": ["lmft-26.3.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.20.1",
+    "minecraft": "~26.3",
+    "java": ">=25"
+  }
+}
