@@ -1,0 +1,94 @@
+name: Minecraft 26.3 multiplayer notification delivery
+
+on:
+  push:
+    branches: [work/multiversion-support, main]
+    paths:
+      - 'modern/26.3/**'
+      - '.github/workflows/multiplayer-notifications.yml'
+  pull_request:
+    paths:
+      - 'modern/26.3/**'
+      - '.github/workflows/multiplayer-notifications.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  multiplayer:
+    name: "Player warnings (${{ matrix.loader }})"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - loader: fabric
+            gradle: '9.8.2'
+          - loader: neoforge
+            gradle: '9.2.1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install version-pinned 26.3 protocol client
+        shell: bash
+        run: |
+          python -m pip install "git+https://github.com/ImWuMie/mc-proto-bot.git@71fce9b6f177f3392705f43ae51f7485bb5868d7"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: ${{ matrix.gradle }}
+      - name: Run four multiplayer notification scenarios
+        shell: bash
+        run: |
+          set -euo pipefail
+          mod_dir="modern/26.3/${{ matrix.loader }}"
+          for mode in public operator-only disabled jvm-disabled; do
+            echo "::group::${{ matrix.loader }} $mode"
+            rm -rf "$mod_dir/run/world"
+            mkdir -p "$mod_dir/run/world/datapacks/lmft-recovery-test" "$mod_dir/run/config"
+            cp -R modern/26.3/testdata/. "$mod_dir/run/world/datapacks/lmft-recovery-test/"
+            printf 'eula=true\n' > "$mod_dir/run/eula.txt"
+            printf 'level-name=world\nonline-mode=false\nmax-tick-time=-1\nenable-rcon=true\nrcon.port=25575\nrcon.password=lmft_ci_only\n' > "$mod_dir/run/server.properties"
+            python - "$mod_dir/run/config/lmft.json" "$mode" <<'PY'
+          import json, sys
+          target, mode = sys.argv[1:]
+          settings = {
+              "disableIngameError": mode == "disabled",
+              "showToOnlyPrivileged": mode == "operator-only",
+          }
+          with open(target, "w", encoding="utf-8") as file:
+              json.dump(settings, file)
+          PY
+            log_file="$mod_dir/notifications-$mode.log"
+            if [[ "$mode" == "jvm-disabled" ]]; then
+              JAVA_TOOL_OPTIONS="-Dlmft.disable_error_output=true" \
+                timeout --signal=TERM --kill-after=15s 330s gradle -p "$mod_dir" runServer --console=plain > "$log_file" 2>&1 &
+            else
+              timeout --signal=TERM --kill-after=15s 330s gradle -p "$mod_dir" runServer --console=plain > "$log_file" 2>&1 &
+            fi
+            server_pid=$!
+            if ! python modern/26.3/tests/multiplayer_notifications.py \
+                --mode "$mode" --version 26.3 --loader "${{ matrix.loader }}" \
+                --server-log "$log_file" \
+                --datapack "$mod_dir/run/world/datapacks/lmft-recovery-test"; then
+              tail -n 180 "$log_file"
+              kill "$server_pid" 2>/dev/null || true
+              wait "$server_pid" || true
+              exit 1
+            fi
+            wait "$server_pid"
+            echo "PASS ${{ matrix.loader }} $mode"
+            echo "::endgroup::"
+          done
+      - name: Upload multiplayer server logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "lmft-multiplayer-${{ matrix.loader }}"
+          path: modern/26.3/${{ matrix.loader }}/notifications-*.log
