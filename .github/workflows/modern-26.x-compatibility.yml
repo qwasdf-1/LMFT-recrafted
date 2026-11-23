@@ -63,8 +63,8 @@ jobs:
           path.write_text(json.dumps(data, indent=2) + "\n")
           PY
           printf 'eula=true\n' > "$mod_dir/run/eula.txt"
-          printf 'level-name=world\nonline-mode=false\nmax-tick-time=-1\n' > "$mod_dir/run/server.properties"
-      - name: Run the actual server and verify recovered tags
+          printf 'level-name=world\nonline-mode=false\nmax-tick-time=-1\nenable-rcon=true\nrcon.port=25575\nrcon.password=lmft_ci_only\n' > "$mod_dir/run/server.properties"
+      - name: Verify actual tag membership and reload semantics
         shell: bash
         run: |
           set -euo pipefail
@@ -73,22 +73,20 @@ jobs:
           if [[ "${{ matrix.loader }}" == "neoforge" ]]; then
             args+=("-Pneo_version=${{ matrix.neo }}")
           fi
-          status=0
-          timeout --signal=TERM --kill-after=15s 210s \
-            gradle -p "$mod_dir" runServer "${args[@]}" --console=plain > "$mod_dir/compatibility-server.log" 2>&1 || status=$?
-          tail -n 90 "$mod_dir/compatibility-server.log"
-          if [[ "$status" != "0" && "$status" != "124" ]]; then
-            echo "Server terminated unexpectedly with code: $status"
+          timeout --signal=TERM --kill-after=15s 330s \
+            gradle -p "$mod_dir" runServer "${args[@]}" --console=plain > "$mod_dir/compatibility-server.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          if ! python3 modern/26.3/tests/server_integration.py \
+              --server-log "$mod_dir/compatibility-server.log" \
+              --datapack "$mod_dir/run/world/datapacks/lmft-recovery-test" \
+              --loader "${{ matrix.loader }}"; then
+            tail -n 140 "$mod_dir/compatibility-server.log"
             exit 1
           fi
-          grep -q "Couldn't load certain entries within tag lmft_test:recovery:" "$mod_dir/compatibility-server.log"
-          grep -q "Couldn't load certain entries within tag lmft_test:missing_tag_reference:" "$mod_dir/compatibility-server.log"
-          if grep -q "Couldn't load certain entries within tag lmft_test:optional:" "$mod_dir/compatibility-server.log"; then
-            echo "Optional entries must not be logged as invalid"
-            exit 1
-          fi
+          wait "$server_pid"
           grep -q 'Done (' "$mod_dir/compatibility-server.log"
-          echo "PASS: ${{ matrix.loader }} Minecraft ${{ matrix.mc }} tag-recovery smoke test"
+          echo "PASS: ${{ matrix.loader }} Minecraft ${{ matrix.mc }} tag membership and reloads"
       - name: Save per-version test logs
         if: always()
         uses: actions/upload-artifact@v4
