@@ -11,7 +11,7 @@ import manifest
 class ManifestTests(unittest.TestCase):
     def test_version_and_targets(self):
         version, target = manifest.config()
-        self.assertRegex(version, r"^[0-9]+\\.[0-9]+\\.[0-9]+")
+        self.assertRegex(version, r"^[0-9]+\.[0-9]+\.[0-9]+")
         self.assertEqual(target["compilation_target"], "26.3")
         self.assertEqual(len(target["minecraft_versions"]), 5)
 
