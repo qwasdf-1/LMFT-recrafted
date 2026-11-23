@@ -92,8 +92,10 @@ The folder name `modern/26.3` is historical; it hosts the shared 26.x source.
 
 Standalone-server cross-loading tests installed *one compiled JAR* per loader
 on **all five** stable 26.x releases and passed full recovery/reload tests.
-See the experimental Fabric run (https://github.com/qwasdf-1/LMFT-recrafted/actions/runs/45262108847)
-and NeoForge run (https://github.com/qwasdf-1/LMFT-recrafted/actions/runs/45262555701).
+Both the metadata-patched experiments and **direct Gradle-generated universal
+artifacts** passed 5/5 real servers: Fabric
+(https://github.com/qwasdf-1/LMFT-recrafted/actions/runs/45263167217) and
+NeoForge (https://github.com/qwasdf-1/LMFT-recrafted/actions/runs/45263166856).
 
 The normal build remains version-pinned. To produce universal-range release
 candidates directly through Gradle, use JDK 25 and the appropriate Gradle version:
