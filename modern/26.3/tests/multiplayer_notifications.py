@@ -125,6 +125,8 @@ async def verify(mode: str, version: str, loader: str, pack: Path, log_file: Pat
             rcon = Rcon()
             return True
         await asyncio.to_thread(await_condition, "RCON listener", get_rcon, 35.0)
+        rcon.command("forceload add 0 0")
+        rcon.command("scoreboard objectives add lmft_probe dummy")
         if not all(count_warnings(log_file, tag) >= 1 for tag in REQUIRED_TAGS):
             raise AssertionError("Test pack did not produce LMFT recovery logs")
 
