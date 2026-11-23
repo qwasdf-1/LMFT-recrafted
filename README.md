@@ -5,7 +5,7 @@ Load My F***ing Tags is a small QOL Mod that prevents Minecraft from failing to 
 
 ## LMFT-recrafted
 
-This repository is an independently maintained continuation of [the original LMFT](https://github.com/Dragon-Seeker/LoadMyFingTags). It retains the original `lmft` mod identifier and credits the original author, Blodhgarm.
+This repository is an independently maintained continuation of [the original LMFT](https://github.com/Dragon-Seeker/LoadMyFingTags). It retains the original `lmft` mod identifier. Credits to the original author, Blodhgarm.
 
 ### Validated Minecraft versions
 
