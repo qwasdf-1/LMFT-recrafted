@@ -1,0 +1,6 @@
+{
+  "values": [
+    "minecraft:stone",
+    "#lmft_test:not_a_tag"
+  ]
+}

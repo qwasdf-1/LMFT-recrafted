@@ -32,14 +32,14 @@ jobs:
       - name: build
         run: ./gradlew build
       - name: capture fabric build artifacts
-        if: ${{ runner.os == 'Linux' && matrix.java == '17' }} # Only upload artifacts built from latest java on one OS
+        if: ${{ runner.os == 'Linux' && matrix.java == 21 }}
         uses: actions/upload-artifact@v4
         with:
           name: Artifacts-Fabric
           path: fabric/build/libs/
-      - name: capture forge build artifacts
-        if: ${{ runner.os == 'Linux' && matrix.java == '17' }} # Only upload artifacts built from latest java on one OS
+      - name: capture neoforge build artifacts
+        if: ${{ runner.os == 'Linux' && matrix.java == 21 }}
         uses: actions/upload-artifact@v4
         with:
-          name: Artifacts-Forge
-          path: forge/build/libs/
+          name: Artifacts-NeoForge
+          path: neoforge/build/libs/

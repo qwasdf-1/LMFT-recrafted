@@ -1,0 +1,6 @@
+{
+  "values": [
+    "minecraft:stone",
+    {"id": "lmft_test:missing_optional", "required": false}
+  ]
+}

@@ -93,7 +93,7 @@ public class LMFTCommon {
     }
 
     public static void sendMessage(Player entity){
-        if (!areTagsCooked || disableIngameError || (showToOnlyPrivileged && entity.permissions().hasPermission(Permissions.COMMANDS_MODERATOR))) return;
+        if (!areTagsCooked || disableIngameError || (showToOnlyPrivileged && !entity.permissions().hasPermission(Permissions.COMMANDS_MODERATOR))) return;
 
         entity.displayClientMessage(
             Component.empty()

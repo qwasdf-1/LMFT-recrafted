@@ -1,0 +1,46 @@
+plugins {
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
+    id 'maven-publish'
+}
+
+version = mod_version
+group = 'io.wispforest'
+
+// Default is a version-pinned JAR. -Pminecraft_range enables a tested
+// cross-version artifact without changing the Minecraft compilation target.
+def compatibleMinecraft = project.hasProperty('minecraft_range')
+    ? project.property('minecraft_range').toString() : minecraft_version.toString()
+
+base {
+    archivesName = project.hasProperty("minecraft_range") ? "lmft-fabric-26.x" : "lmft-fabric-${minecraft_version}"
+}
+
+sourceSets.main.java.srcDir('../common/src/main/java')
+sourceSets.main.resources.srcDir('../common/src/main/resources')
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${loader_version}"
+}
+
+processResources {
+    inputs.property 'version', project.version
+    inputs.property 'minecraft_range', compatibleMinecraft
+    filesMatching('fabric.mod.json') {
+        expand version: project.version, minecraft_range: compatibleMinecraft
+    }
+    // Reuse existing LMFT resources without packaging legacy mixin configs.
+    from('../../../common/src/main/resources/assets') {
+        into 'assets'
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 25
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(25)
+    withSourcesJar()
+}

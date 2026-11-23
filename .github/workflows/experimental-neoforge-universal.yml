@@ -1,0 +1,131 @@
+name: Experimental single-JAR NeoForge 26.x cross-load
+
+on:
+  push:
+    branches: [work/multiversion-support]
+    paths:
+      - '.github/workflows/experimental-neoforge-universal.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  candidate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Build one universal-range NeoForge JAR directly
+        run: |
+          gradle -p modern/26.3/neoforge build --console=plain \
+            -Pminecraft_range='[26.1,26.4)' \
+            -Pneoforge_range='[26.1.0.19-beta,)' \
+            -Pmod_version='1.2.0-alpha.1+26.x-universal-test'
+      - name: Verify generated metadata and stage JAR
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          jars = list(Path("modern/26.3/neoforge/build/libs").glob("*.jar"))
+          assert len(jars) == 1, jars
+          with ZipFile(jars[0]) as jar:
+              meta = jar.read("META-INF/neoforge.mods.toml").decode()
+              assert 'versionRange = "[26.1,26.4)"' in meta, meta
+              assert 'versionRange = "[26.1.0.19-beta,)"' in meta, meta
+          Path("neoforge-universal-candidate.jar").write_bytes(jars[0].read_bytes())
+          print("Universal NeoForge metadata generated directly by Gradle")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: neoforge-universal-candidate
+          path: neoforge-universal-candidate.jar
+
+  cross-load:
+    needs: candidate
+    name: "One compiled NeoForge JAR on Minecraft ${{ matrix.mc }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { mc: '26.1',   neo: '26.1.0.19-beta', pack: 101 }
+          - { mc: '26.1.1', neo: '26.1.1.15-beta', pack: 101 }
+          - { mc: '26.1.2', neo: '26.1.2.129', pack: 101 }
+          - { mc: '26.2',   neo: '26.2.0.95', pack: 107 }
+          - { mc: '26.3',   neo: '26.3.0.115', pack: 121 }
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/download-artifact@v4
+        with:
+          name: neoforge-universal-candidate
+          path: .
+      - name: Install a standalone NeoForge server for this Minecraft version
+        shell: bash
+        run: |
+          set -euo pipefail
+          server_dir="$PWD/universal-server"
+          mkdir -p "$server_dir" "$server_dir/mods"
+          neo="${{ matrix.neo }}"
+          curl --fail --location --retry 3 \
+            "https://maven.neoforged.net/releases/net/neoforged/neoforge/$neo/neoforge-$neo-installer.jar" \
+            -o "$server_dir/neoforge-installer.jar"
+          (
+            cd "$server_dir"
+            java -jar neoforge-installer.jar --installServer
+          )
+          test -f "$server_dir/run.sh"
+          cp neoforge-universal-candidate.jar "$server_dir/mods/"
+          mkdir -p "$server_dir/world/datapacks/lmft-recovery-test"
+          cp -R modern/26.3/testdata/. "$server_dir/world/datapacks/lmft-recovery-test/"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path("universal-server/world/datapacks/lmft-recovery-test/pack.mcmeta")
+          pack = json.loads(path.read_text())
+          pack["pack"]["min_format"] = ${{ matrix.pack }}
+          pack["pack"]["max_format"] = ${{ matrix.pack }}
+          path.write_text(json.dumps(pack, indent=2) + "\n")
+          PY
+          printf 'eula=true\n' > "$server_dir/eula.txt"
+          printf 'level-name=world\nonline-mode=false\nmax-tick-time=-1\nenable-rcon=true\nrcon.port=25575\nrcon.password=lmft_ci_only\n' \
+            > "$server_dir/server.properties"
+      - name: Test exactly the same NeoForge JAR on this release
+        shell: bash
+        run: |
+          set -euo pipefail
+          server_dir="$PWD/universal-server"
+          (
+            cd "$server_dir"
+            timeout --signal=TERM --kill-after=15s 380s \
+              bash run.sh nogui > server.log 2>&1
+          ) &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          if ! python3 modern/26.3/tests/server_integration.py \
+              --server-log "$server_dir/server.log" \
+              --datapack "$server_dir/world/datapacks/lmft-recovery-test" \
+              --loader neoforge; then
+            tail -n 180 "$server_dir/server.log"
+            exit 1
+          fi
+          wait "$server_pid"
+          grep -q 'Done (' "$server_dir/server.log"
+          echo "PASS: identical NeoForge JAR on Minecraft ${{ matrix.mc }}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: "neoforge-universal-test-${{ matrix.mc }}"
+          path: universal-server/server.log

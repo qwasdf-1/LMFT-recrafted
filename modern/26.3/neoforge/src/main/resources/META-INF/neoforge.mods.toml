@@ -1,0 +1,28 @@
+modLoader = "javafml"
+loaderVersion = "[11,13)"
+license = "CC0-1.0"
+
+[[mods]]
+modId = "lmft"
+version = "${version}"
+displayName = "Load My F***ing Tags (Recrafted)"
+authors = "Blodhgarm, LMFT-recrafted contributors"
+description = '''Retains valid tag entries when required tag references are missing.'''
+iconFile = "assets/lmft/icon.png"
+
+[[mixins]]
+config = "lmft-26.3.mixins.json"
+
+[[dependencies.lmft]]
+modId = "neoforge"
+type = "required"
+versionRange = "${neoforge_range}"
+ordering = "NONE"
+side = "BOTH"
+
+[[dependencies.lmft]]
+modId = "minecraft"
+type = "required"
+versionRange = "${minecraft_range}"
+ordering = "NONE"
+side = "BOTH"

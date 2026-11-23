@@ -1,0 +1,4 @@
+{
+  "values": ["minecraft:stone", "minecraft:dirt"],
+  "remove": ["minecraft:stone", "lmft_test:missing_optional_removal"]
+}
