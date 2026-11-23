@@ -1,37 +1,107 @@
 #!/usr/bin/env python3
-"""Resolve CurseForge numeric game-version tags for universal LMFT artifacts.
+"""Resolve CurseForge game version IDs by version *and category*.
 
-Usage: python3 release/curseforge_versions.py --versions /tmp/versions.json
-       --loader fabric --overrides "$CURSEFORGE_GAME_VERSIONS"
-The JSON output is a single list of version IDs (Minecraft + loader +
-optional Java 25 + environment), suitable for /api/projects/:id/upload-file.
+CurseForge uses the same display names in multiple categories (e.g. Bukkit
+and Minecraft Java). Always consult /api/game/version-types to select a
+Minecraft category, rather than picking the first same-named version.
 """
 import argparse
 import json
 from pathlib import Path
+import re
 import sys
 
 from manifest import config
 
 KNOWN_ENVIRONMENT_IDS = {"client": 9638, "server": 9639}
+MINECRAFT_TYPE = re.compile(r"^minecraft(?:\s+(\d+(?:\.\d+)*(?:\.x)?))?$", re.I)
+
+
+def exact_matches(data, needle):
+    return [entry for entry in data
+            if str(entry.get("name", "")).casefold() == needle.casefold()
+            or str(entry.get("slug", "")).casefold() == needle.casefold()]
 
 
 def find_exact(data, needle, *, optional=False):
-    options = [v["id"] for v in data if
-               str(v.get("name", "")).casefold() == needle.casefold()
-               or str(v.get("slug", "")).casefold() == needle.casefold()]
-    options = sorted(set(options))
-    if len(options) == 1:
-        return options[0]
-    if not options and optional:
+    matches = exact_matches(data, needle)
+    ids = sorted({row["id"] for row in matches})
+    if len(ids) == 1:
+        return ids[0]
+    if not ids and optional:
         return None
+    raise ValueError(f"CurseForge version {needle!r} has {len(ids)} matches: {ids}")
+
+
+def minecraft_category_score(version_type, mc):
+    """Return type specificity if it describes a Minecraft release category.
+
+    Minecraft 26.1 covers 26.1 and the 26.1.x hotfixes; Minecraft 26.2
+    covers 26.2, but not 26.1. A more specific matching category wins.
+    Bukkit/Spigot/other projects sharing a version string never qualify.
+    """
+    name = str(version_type.get("name") or "").strip()
+    match = MINECRAFT_TYPE.fullmatch(name)
+    if not match:
+        # The official type slug can carry the label when name is absent.
+        slug = str(version_type.get("slug") or "")
+        if name or not slug.lower().startswith("minecraft-"):
+            return None
+        suffix = slug[len("minecraft-"):].replace("-", ".")
+        match = MINECRAFT_TYPE.fullmatch("Minecraft " + suffix)
+        if not match:
+            return None
+    family = match.group(1)
+    if family is None:
+        return 0
+    parts = family.removesuffix(".x").split(".")
+    target = mc.split(".")
+    if target[:len(parts)] != parts:
+        return None
+    return len(parts)
+
+
+def minecraft_version_id(data, mc, version_types=None):
+    candidates = exact_matches(data, mc)
+    if not candidates:
+        raise ValueError(f"CurseForge Minecraft version {mc!r} not found")
+    if version_types is None:
+        # Local unit tests or a manual resolver without the category table.
+        if len({v["id"] for v in candidates}) == 1:
+            return candidates[0]["id"]
+        raise ValueError(
+            f"CurseForge Minecraft version {mc!r} is ambiguous; "
+            "fetch /api/game/version-types and pass --version-types "
+            "(or use a verified CURSEFORGE_GAME_VERSIONS override)."
+        )
+    if not isinstance(version_types, list):
+        raise ValueError("Expected CurseForge /api/game/version-types JSON array")
+    types = {v.get("id"): v for v in version_types}
+    scored = []
+    diagnostics = []
+    for candidate in candidates:
+        type_id = candidate.get("gameVersionTypeID")
+        category = types.get(type_id, {})
+        score = minecraft_category_score(category, mc)
+        label = category.get("name") or category.get("slug") or "<unknown type>"
+        diagnostics.append(f"{candidate['id']} (type {type_id}: {label})")
+        if score is not None:
+            scored.append((score, candidate["id"]))
+    if scored:
+        highest = max(score for score, _ in scored)
+        winners = sorted({id_ for score, id_ in scored if score == highest})
+        if len(winners) == 1:
+            return winners[0]
     raise ValueError(
-        f"CurseForge game version {needle!r} yielded {len(options)} IDs: {options}. "
-        "Use explicit CURSEFORGE_GAME_VERSIONS overrides for Minecraft versions."
+        f"Could not uniquely identify Minecraft release {mc!r} by "
+        "CurseForge gameVersionTypeID. Candidates: "
+        + ", ".join(diagnostics)
+        + ". Set a verified CURSEFORGE_GAME_VERSIONS override only if "
+          "the CurseForge category table itself is ambiguous."
     )
 
 
-def resolve(data, loader, overrides=None, environment="both"):
+def resolve(data, loader, overrides=None, environment="both", version_types=None):
     _version, release = config()
     if loader not in release["loaders"]:
         raise ValueError("Unsupported loader " + loader)
@@ -50,10 +120,9 @@ def resolve(data, loader, overrides=None, environment="both"):
                 raise ValueError(f"Invalid numeric CurseForge override for {mc}")
             selected.extend(candidate)
         else:
-            selected.append(find_exact(data, mc))
+            selected.append(minecraft_version_id(data, mc, version_types))
     selected.append(find_exact(data, loader))
 
-    # CurseForge may not expose Java-version tags in all environments.
     java = find_exact(data, "Java 25", optional=True)
     if java:
         selected.append(java)
@@ -69,6 +138,7 @@ def resolve(data, loader, overrides=None, environment="both"):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--versions", type=Path, required=True)
+    parser.add_argument("--version-types", type=Path)
     parser.add_argument("--loader", choices=("fabric", "neoforge"), required=True)
     parser.add_argument("--overrides", default="")
     parser.add_argument("--environment", default="both")
@@ -77,7 +147,9 @@ def main():
     if not isinstance(overrides, dict):
         raise ValueError("CURSEFORGE_GAME_VERSIONS must be a JSON object")
     data = json.loads(args.versions.read_text(encoding="utf-8"))
-    print(json.dumps(resolve(data, args.loader, overrides, args.environment)))
+    types = (json.loads(args.version_types.read_text(encoding="utf-8"))
+             if args.version_types else None)
+    print(json.dumps(resolve(data, args.loader, overrides, args.environment, types)))
 
 
 if __name__ == "__main__":

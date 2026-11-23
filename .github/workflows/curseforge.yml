@@ -71,8 +71,14 @@ jobs:
             -H "User-Agent: qwasdf-1/LMFT-recrafted-github-publisher" \
             https://minecraft.curseforge.com/api/game/versions \
             > "$RUNNER_TEMP/curseforge-versions.json"
+          curl --fail-with-body --silent --show-error \
+            -H "X-Api-Token: $CURSEFORGE_TOKEN" \
+            -H "User-Agent: qwasdf-1/LMFT-recrafted-github-publisher" \
+            https://minecraft.curseforge.com/api/game/version-types \
+            > "$RUNNER_TEMP/curseforge-version-types.json"
           python3 release/curseforge_versions.py \
             --versions "$RUNNER_TEMP/curseforge-versions.json" \
+            --version-types "$RUNNER_TEMP/curseforge-version-types.json" \
             --loader "$LOADER" \
             --overrides "$CURSEFORGE_GAME_VERSIONS" \
             --environment "$CURSEFORGE_ENVIRONMENT" \
