@@ -102,17 +102,29 @@ def rewrite_tag(root: Path, name: str, values: list[str]) -> None:
     path.write_text(json.dumps({"values": values}, indent=2) + "\n", encoding="utf-8")
 
 
+def member_matches(rcon: Rcon, tag: str, block: str) -> bool:
+    rcon.command(f"setblock {TEST_POS} minecraft:{block}")
+    rcon.command("scoreboard players set probe lmft_probe 0")
+    rcon.command(
+        f"execute if block {TEST_POS} #{tag} run scoreboard players set probe lmft_probe 1"
+    )
+    output = rcon.command("scoreboard players get probe lmft_probe")
+    # Unlike /say, scoreboard readback must produce a numeric response.
+    # Assert the exact value, not the success of the preceding command.
+    import re
+    match = re.search(r"(?<![0-9])([01])(?![0-9])", output)
+    if match is None:
+        raise AssertionError(f"No numeric scoreboard readback for #{tag}: {output!r}")
+    result = match.group(1) == "1"
+    print(f"probe: minecraft:{block} in #{tag}: {result}", flush=True)
+    return result
+
+
 def assert_member(rcon: Rcon, tag: str, block: str, should_match: bool) -> None:
-    response = rcon.command(f"setblock {TEST_POS} minecraft:{block}")
-    if "unknown" in response.lower() or "error" in response.lower():
-        raise AssertionError(f"Failed to place {block}: {response!r}")
-    marker = "LMFT_ASSERT_MEMBER_PRESENT"
-    result = rcon.command(f"execute if block {TEST_POS} #{tag} run say {marker}")
-    found = marker in result
+    found = member_matches(rcon, tag, block)
     if found != should_match:
         raise AssertionError(
-            f"Expected {block} in #{tag} to be {should_match}; "
-            f"RCON replied: {result!r}"
+            f"Expected {block} in #{tag} to be {should_match}; got {found}"
         )
 
 
@@ -150,6 +162,7 @@ def main() -> int:
         await_condition("RCON authentication", connect, timeout=25)
         print("RCON authenticated", flush=True)
         rcon.command("forceload add 0 0")
+        rcon.command("scoreboard objectives add lmft_probe dummy")
         assert_membership(rcon, args.loader, clean=False)
 
         for tag in (TAG1, TAG2):
@@ -206,14 +219,6 @@ def main() -> int:
     finally:
         if rcon is not None:
             rcon.close()
-
-
-def member_matches(rcon: Rcon, tag: str, block: str) -> bool:
-    rcon.command(f"setblock {TEST_POS} minecraft:{block}")
-    response = rcon.command(
-        f"execute if block {TEST_POS} #{tag} run say LMFT_ASSERT_RELOADED"
-    )
-    return "LMFT_ASSERT_RELOADED" in response
 
 
 if __name__ == "__main__":
