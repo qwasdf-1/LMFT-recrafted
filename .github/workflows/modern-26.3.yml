@@ -107,8 +107,8 @@ jobs:
           mod_dir="modern/26.3/${{ matrix.loader }}"
           mkdir -p "$mod_dir/run/world/datapacks/lmft-recovery-test"
           cp -R modern/26.3/testdata/. "$mod_dir/run/world/datapacks/lmft-recovery-test/"
-          printf 'eula=true\\n' > "$mod_dir/run/eula.txt"
-          printf 'level-name=world\\nonline-mode=false\\nmax-tick-time=-1\\n' > "$mod_dir/run/server.properties"
+          printf 'eula=true\n' > "$mod_dir/run/eula.txt"
+          printf 'level-name=world\nonline-mode=false\nmax-tick-time=-1\n' > "$mod_dir/run/server.properties"
       - name: Start server and assert LMFT recovery
         shell: bash
         run: |
