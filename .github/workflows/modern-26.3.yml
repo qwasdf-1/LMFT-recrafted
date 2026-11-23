@@ -108,28 +108,26 @@ jobs:
           mkdir -p "$mod_dir/run/world/datapacks/lmft-recovery-test"
           cp -R modern/26.3/testdata/. "$mod_dir/run/world/datapacks/lmft-recovery-test/"
           printf 'eula=true\n' > "$mod_dir/run/eula.txt"
-          printf 'level-name=world\nonline-mode=false\nmax-tick-time=-1\n' > "$mod_dir/run/server.properties"
-      - name: Start server and assert LMFT recovery
+          printf 'level-name=world\nonline-mode=false\nmax-tick-time=-1\nenable-rcon=true\nrcon.port=25575\nrcon.password=lmft_ci_only\n' > "$mod_dir/run/server.properties"
+      - name: Start server and assert actual tag membership and reloads
         shell: bash
         run: |
           set -euo pipefail
           mod_dir="modern/26.3/${{ matrix.loader }}"
-          status=0
-          timeout --signal=TERM --kill-after=15s 240s \
-            gradle -p "$mod_dir" runServer --console=plain > "$mod_dir/server-smoke.log" 2>&1 || status=$?
-          tail -n 150 "$mod_dir/server-smoke.log"
-          if [[ "$status" != "0" && "$status" != "124" ]]; then
-            echo "Server/Gradle exited unexpectedly: $status"
+          timeout --signal=TERM --kill-after=15s 330s \
+            gradle -p "$mod_dir" runServer --console=plain > "$mod_dir/server-smoke.log" 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          if ! python3 modern/26.3/tests/server_integration.py \
+              --server-log "$mod_dir/server-smoke.log" \
+              --datapack "$mod_dir/run/world/datapacks/lmft-recovery-test" \
+              --loader "${{ matrix.loader }}"; then
+            tail -n 140 "$mod_dir/server-smoke.log"
             exit 1
           fi
-          grep -q "Couldn't load certain entries within tag lmft_test:recovery:" "$mod_dir/server-smoke.log"
-          grep -q "Couldn't load certain entries within tag lmft_test:missing_tag_reference:" "$mod_dir/server-smoke.log"
-          if grep -q "Couldn't load certain entries within tag lmft_test:optional:" "$mod_dir/server-smoke.log"; then
-            echo 'Optional missing entries should not trigger LMFT recovery'
-            exit 1
-          fi
+          wait "$server_pid"
           grep -q 'Done (' "$mod_dir/server-smoke.log"
-          echo "LMFT ${{ matrix.loader }} 26.3 dedicated server smoke passed"
+          echo "PASS: ${{ matrix.loader }} 26.3 dedicated server integration"
       - name: Upload server output for debugging
         if: always()
         uses: actions/upload-artifact@v4
