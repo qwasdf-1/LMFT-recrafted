@@ -117,7 +117,13 @@ The validation workflows still retain exact-version builds as a regression
 control. Widening version metadata outside the tested set requires new server
 tests; 26.4 is not included.
 
-Before publishing a full release, manually validate connected-player chat
-notifications and operator-only filtering as described in
-`docs/26.x-verification-checklist.md`. The headless server tests cannot
-verify actual client chat delivery.
+Connected-player notification delivery is now covered by automated
+Minecraft 26.3 Fabric and NeoForge multiplayer tests (public, operator-only,
+disabled, and JVM-disabled modes), including clean and broken reloads.
+See `docs/26.x-verification-checklist.md` and
+https://github.com/qwasdf-1/LMFT-recrafted/actions/runs/45266710028.
+The tests use actual client connections; they are not merely server log checks.
+
+LMFT-recrafted additions are licensed under Apache-2.0. The original LMFT
+materials retain their CC0-1.0 dedication. See the repository's `LICENSE`,
+`NOTICE`, and `LICENSES/CC0-1.0.txt` for provenance and credit to Blodhgarm.
