@@ -34,13 +34,25 @@ You must establish **LMFT-recrafted's own marketplace project(s)**. Never
 reuse the original LMFT author's project IDs unless they explicitly grant
 project ownership and upload permissions.
 
-Modrinth: create a project, set source URL to
-`https://github.com/qwasdf-1/LMFT-recrafted`. Add Actions secret
-`MODRINTH_TOKEN` with PROJECT_READ and VERSION_CREATE capabilities, and
-Actions variable `MODRINTH_PROJECT_ID` set to your project ID (not the
-original author's). The publisher verifies the project's source URL before
-uploading. If the variable is absent, automatic Modrinth publishing is
-skipped.
+Modrinth: create a project and set its **Source** link to
+`https://github.com/qwasdf-1/LMFT-recrafted`. The Actions secret
+`MODRINTH_TOKEN` needs PROJECT_READ and VERSION_CREATE capabilities.
+
+**No Modrinth project ID needs to be copied manually.** Set any one of these
+Actions variables (whichever you already configured is fine):
+
+- `MODRINTH_PROJECT_ID`: accepts either an actual project ID **or a slug**.
+- `MODRINTH_PROJECT_SLUG`: the fork's project slug, such as `lmft-recrafted`.
+- `MODRINTH_PROJECT_URL`: full `https://modrinth.com/mod/<slug>` URL.
+
+The publisher calls Modrinth's `GET /v2/project/{id|slug}` endpoint with the
+configured slug/identifier, verifies the returned project's GitHub source
+URL against this repository, and then extracts the **canonical project ID**
+from `project.id` for its upload payload. If multiple identifiers are
+configured they must refer to the same project. The project may need to be
+visible through Modrinth's API first; a missing or inaccessible project causes
+a safe failure, not publication to a fallback project. When none of the three
+identifier variables is present, automatic Modrinth publishing is skipped.
 
 CurseForge: create a new project, generate an uploader API token, set Actions
 secret `CURSEFORGE_TOKEN` and Actions variable
