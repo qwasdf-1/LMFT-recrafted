@@ -18,7 +18,7 @@ public final class LmftModern {
     public static final Logger LOGGER = LogUtils.getLogger();
 
     private static final URI INFO_URL =
-        URI.create("https://github.com/qwasdf-1/LMFT-recrafted/blob/1.21.x/info.md");
+        URI.create("https://github.com/qwasdf-1/LMFT-recrafted/blob/main/info.md");
     private static volatile LmftConfig.Settings settings = LmftConfig.Settings.DEFAULT;
 
     private LmftModern() {}

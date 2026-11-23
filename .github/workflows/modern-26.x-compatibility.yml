@@ -2,7 +2,7 @@ name: Minecraft 26.x compatibility (experimental)
 
 on:
   push:
-    branches: [work/multiversion-support, 26.x]
+    branches: [work/multiversion-support, main, 26.x]
   pull_request:
 
 permissions:

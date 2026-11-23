@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - work/multiversion-support
+      - main
       - 26.x
   pull_request:
 
