@@ -9,6 +9,7 @@ PROJECT = {
     "id": "AbCd1234",
     "slug": "lmft-recrafted",
     "source_url": "https://github.com/qwasdf-1/LMFT-recrafted",
+    "license": {"id": "Apache-2.0", "name": "Apache License 2.0"},
 }
 SOURCE = "https://github.com/qwasdf-1/LMFT-recrafted"
 
@@ -32,6 +33,11 @@ class ModrinthProjectTests(unittest.TestCase):
             verify(PROJECT, SOURCE, slug="different-project")
         with self.assertRaises(ValueError):
             verify(PROJECT, "https://github.com/elsewhere/not-lmft")
+
+    def test_rejects_legacy_cc0_marketplace_setting(self):
+        project = dict(PROJECT, license={"id": "CC0-1.0"})
+        with self.assertRaisesRegex(ValueError, "Apache-2.0"):
+            verify(project, SOURCE, slug="lmft-recrafted")
 
     def test_refuses_invalid_identifier(self):
         with self.assertRaises(ValueError):

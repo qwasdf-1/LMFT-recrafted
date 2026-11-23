@@ -45,6 +45,10 @@ Actions variables (whichever you already configured is fine):
 - `MODRINTH_PROJECT_SLUG`: the fork's project slug, such as `lmft-recrafted`.
 - `MODRINTH_PROJECT_URL`: full `https://modrinth.com/mod/<slug>` URL.
 
+Before publishing, set the Modrinth project's **License** field to
+`Apache-2.0`; the resolver checks it and rejects mismatches rather than
+publishing with inconsistent licensing.
+
 The publisher calls Modrinth's `GET /v2/project/{id|slug}` endpoint with the
 configured slug/identifier, verifies the returned project's GitHub source
 URL against this repository, and then extracts the **canonical project ID**

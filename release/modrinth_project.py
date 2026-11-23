@@ -53,6 +53,13 @@ def verify(project, expected_source, project_id="", slug="", url=""):
         raise ValueError(
             f"Modrinth project source_url must be {expected_source!r}; found {source!r}"
         )
+    license_info = project.get("license") or {}
+    license_id = license_info.get("id") if isinstance(license_info, dict) else None
+    if license_id != "Apache-2.0":
+        raise ValueError(
+            f"Modrinth project license must be Apache-2.0 before publishing; "
+            f"found {license_id!r}. Update the project's License setting."
+        )
     if project_id.strip() and identifier(project_id) not in (canonical, actual_slug):
         raise ValueError("Configured MODRINTH_PROJECT_ID does not match resolved project")
     if slug.strip() and identifier(slug) != actual_slug:

@@ -54,7 +54,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import yaml
-          for name in ('release.yml', 'modrinth.yml', 'curseforge.yml', 'publishing-checks.yml'):
+          for name in ('release.yml', 'modrinth.yml', 'curseforge.yml', 'publishing-checks.yml', 'credentials-preflight.yml'):
               data = yaml.safe_load((Path('.github/workflows') / name).read_text())
               assert isinstance(data, dict) and 'jobs' in data, name
               print('Parsed', name)
