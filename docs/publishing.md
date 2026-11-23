@@ -137,3 +137,19 @@ not conclusively validate permission to upload to a particular project.
 A project still awaiting Modrinth API visibility may temporarily fail that
 read-only check; the publisher will likewise fail safely rather than
 upload to an unintended project.
+
+
+### Duplicate CurseForge Minecraft version names
+
+CurseForge can return several numeric IDs with the same version label,
+including `26.1`, in distinct version categories. The resolver fetches
+**both** `/api/game/versions` and `/api/game/version-types` and uses the
+`gameVersionTypeID` to select the matching **Minecraft release**
+category, rather than guessing from the displayed version name or
+choosing the first result. A Minecraft 26.1 category also covers 26.1.x
+hotfixes. If the category data remains genuinely ambiguous, publishing
+fails closed and prints the candidate IDs and category names.
+
+`CURSEFORGE_GAME_VERSIONS` remains an optional, manually verified
+override for unusual API metadata; it should not be needed simply because
+another category uses the same Minecraft version name.
