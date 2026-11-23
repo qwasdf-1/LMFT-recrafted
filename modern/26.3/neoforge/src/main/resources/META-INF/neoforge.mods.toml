@@ -4,7 +4,7 @@ license = "CC0-1.0"
 
 [[mods]]
 modId = "lmft"
-version = "1.2.0-alpha.1+26.3"
+version = "${version}"
 displayName = "Load My F***ing Tags (Recrafted)"
 authors = "Blodhgarm, LMFT-recrafted contributors"
 description = '''Retains valid tag entries when required tag references are missing.'''

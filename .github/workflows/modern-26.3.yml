@@ -1,0 +1,79 @@
+name: Minecraft 26.3
+
+on:
+  push:
+    branches:
+      - work/multiversion-support
+      - 26.x
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  recovery-unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Compile and test loader-independent recovery logic
+        shell: bash
+        run: |
+          set -euo pipefail
+          temp_dir=$(mktemp -d)
+          trap 'rm -rf "$temp_dir"' EXIT
+          javac -d "$temp_dir" \
+            modern/26.3/common/src/main/java/io/wispforest/lmft/TagRecovery.java \
+            modern/26.3/tests/TagRecoveryTest.java
+          java -cp "$temp_dir" io.wispforest.lmft.TagRecoveryTest
+      - name: Validate tag test fixtures
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          for path in Path('modern/26.3/testdata').rglob('*.json'):
+              json.loads(path.read_text())
+          json.loads(Path('modern/26.3/testdata/pack.mcmeta').read_text())
+          print('All 26.3 test fixture JSON parses')
+          PY
+
+  fabric:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.8.2'
+      - name: Build Fabric 26.3
+        run: gradle -p modern/26.3/fabric build --stacktrace
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: lmft-fabric-26.3
+          path: modern/26.3/fabric/build/libs/*.jar
+
+  neoforge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Build NeoForge 26.3
+        run: gradle -p modern/26.3/neoforge build --stacktrace
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: lmft-neoforge-26.3
+          path: modern/26.3/neoforge/build/libs/*.jar
