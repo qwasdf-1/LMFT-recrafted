@@ -115,3 +115,21 @@ python3 release/manifest.py version
 python3 release/manifest.py notes
 python3 release/manifest.py games
 ```
+
+
+## Read-only credentials verification
+
+After merging, open GitHub Actions and run **Verify marketplace credentials
+(no uploads)**. This checks the already configured variables and secrets
+without creating a GitHub Release, pushing a version tag, or uploading files.
+
+For Modrinth it resolves the configured slug (including a slug placed in
+`MODRINTH_PROJECT_ID`) to the canonical project ID, validates the project's
+GitHub source link, and displays the resolved ID in the workflow summary.
+For CurseForge it checks the token against the game-version API and verifies
+that all five Minecraft versions can be tagged for each loader; this does
+not conclusively validate permission to upload to a particular project.
+
+A project still awaiting Modrinth API visibility may temporarily fail that
+read-only check; the publisher will likewise fail safely rather than
+upload to an unintended project.

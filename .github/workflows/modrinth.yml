@@ -74,7 +74,7 @@ jobs:
             --expected-source "https://github.com/$GH_REPO" \
             --project-json "$RUNNER_TEMP/project.json")"
           echo "RESOLVED_MODRINTH_PROJECT_ID=$canonical" >> "$GITHUB_ENV"
-          jq -er 'select(.id != null and .slug != null) | "Publishing to Modrinth project \\(.slug) (\\(.id))"' "$RUNNER_TEMP/project.json"
+          jq -er 'select(.id != null and .slug != null) | "Publishing to Modrinth project \(.slug) (\(.id))"' "$RUNNER_TEMP/project.json"
       - name: Upload or verify existing version
         shell: bash
         run: |

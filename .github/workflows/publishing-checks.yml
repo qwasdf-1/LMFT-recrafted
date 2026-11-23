@@ -5,6 +5,12 @@ on:
     branches: [main, work/release-publishing]
     paths:
       - 'release/**'
+      - 'LICENSE'
+      - 'LICENSES/**'
+      - 'NOTICE'
+      - 'README.md'
+      - 'docs/publishing.md'
+      - '.github/workflows/credentials-preflight.yml'
       - 'CHANGELOG.md'
       - '.github/workflows/release.yml'
       - '.github/workflows/modrinth.yml'
@@ -13,6 +19,12 @@ on:
   pull_request:
     paths:
       - 'release/**'
+      - 'LICENSE'
+      - 'LICENSES/**'
+      - 'NOTICE'
+      - 'README.md'
+      - 'docs/publishing.md'
+      - '.github/workflows/credentials-preflight.yml'
       - 'CHANGELOG.md'
       - '.github/workflows/release.yml'
       - '.github/workflows/modrinth.yml'
