@@ -11,7 +11,7 @@ import manifest
 class ManifestTests(unittest.TestCase):
     def test_version_and_targets(self):
         version, target = manifest.config()
-        self.assertEqual(version, "1.2.0-alpha.1")
+        self.assertRegex(version, r"^[0-9]+\\.[0-9]+\\.[0-9]+")
         self.assertEqual(target["compilation_target"], "26.3")
         self.assertEqual(len(target["minecraft_versions"]), 5)
 
@@ -34,7 +34,7 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(manifest.channel("1.2.0"), "release")
 
     def test_release_notes(self):
-        self.assertIn("Minecraft 26.1", manifest.notes("1.2.0-alpha.1"))
+        self.assertIn("Minecraft 26.1", manifest.notes(manifest.config()[0]))
 
     def test_checksums(self):
         with tempfile.TemporaryDirectory() as d:

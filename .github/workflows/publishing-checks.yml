@@ -47,3 +47,65 @@ jobs:
               assert isinstance(data, dict) and 'jobs' in data, name
               print('Parsed', name)
           PY
+
+  candidate-binaries:
+    needs: contracts
+    runs-on: ubuntu-latest
+    name: "Dry-run release JAR (${{ matrix.loader }})"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { loader: fabric, gradle: '9.8.2' }
+          - { loader: neoforge, gradle: '9.2.1' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: ${{ matrix.gradle }}
+      - name: Build and validate universal release candidate without uploading
+        shell: bash
+        env:
+          LOADER: ${{ matrix.loader }}
+        run: |
+          set -euo pipefail
+          version="$(python3 release/manifest.py version)"
+          args=("-Pmod_version=$version+26.x")
+          if [[ "$LOADER" == fabric ]]; then
+            args+=("-Pminecraft_range=>=26.1 <26.4")
+          else
+            args+=("-Pminecraft_range=[26.1,26.4)" "-Pneoforge_range=[26.1.0.19-beta,)")
+          fi
+          gradle -p "modern/26.3/$LOADER" clean build "${args[@]}" --console=plain
+          python3 release/manifest.py stage --loader "$LOADER" \
+            --build-dir "modern/26.3/$LOADER/build/libs"
+          jar="$(python3 release/manifest.py file --loader "$LOADER")"
+          unzip -t "dist/$jar" >/dev/null
+          if [[ "$LOADER" == fabric ]]; then
+            unzip -p "dist/$jar" fabric.mod.json > "$RUNNER_TEMP/metadata.json"
+            python3 - "$RUNNER_TEMP/metadata.json" "$version" <<'PY'
+          import json,sys
+          metadata=json.load(open(sys.argv[1]))
+          assert metadata["id"] == "lmft"
+          assert metadata["version"] == sys.argv[2] + "+26.x"
+          assert metadata["depends"]["minecraft"] == ">=26.1 <26.4"
+          assert metadata["license"] == "CC0-1.0"
+          PY
+          else
+            unzip -p "dist/$jar" META-INF/neoforge.mods.toml > "$RUNNER_TEMP/metadata.toml"
+            python3 - "$RUNNER_TEMP/metadata.toml" "$version" <<'PY'
+          import sys,tomllib
+          with open(sys.argv[1],"rb") as source:
+              metadata=tomllib.load(source)
+          assert metadata["mods"][0]["modId"] == "lmft"
+          assert metadata["mods"][0]["version"] == sys.argv[2] + "+26.x"
+          assert metadata["license"] == "CC0-1.0"
+          dependencies={item["modId"]:item for item in metadata["dependencies"]["lmft"]}
+          assert dependencies["minecraft"]["versionRange"] == "[26.1,26.4)"
+          PY
+          fi
+          echo "Release candidate $jar metadata verified; no publish performed"
