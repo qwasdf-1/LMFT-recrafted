@@ -51,6 +51,7 @@ jobs:
           for mode in public operator-only disabled jvm-disabled; do
             echo "::group::${{ matrix.loader }} $mode"
             rm -rf "$mod_dir/run/world"
+            rm -f "$mod_dir/run/ops.json" "$mod_dir/run/whitelist.json" "$mod_dir/run/usercache.json"
             mkdir -p "$mod_dir/run/world/datapacks/lmft-recovery-test" "$mod_dir/run/config"
             cp -R modern/26.3/testdata/. "$mod_dir/run/world/datapacks/lmft-recovery-test/"
             printf 'eula=true\n' > "$mod_dir/run/eula.txt"
