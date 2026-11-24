@@ -103,12 +103,12 @@ candidates directly through Gradle, use JDK 25 and the appropriate Gradle versio
 ```bash
 gradle -p modern/26.3/fabric build \\
   -Pminecraft_range='>=26.1 <26.4' \\
-  -Pmod_version='1.2.0-alpha.1+26.x'
+  -Pmod_version='1.2.0+26.x'
 
 gradle -p modern/26.3/neoforge build \\
   -Pminecraft_range='[26.1,26.4)' \\
   -Pneoforge_range='[26.1.0.19-beta,)' \\
-  -Pmod_version='1.2.0-alpha.1+26.x'
+  -Pmod_version='1.2.0+26.x'
 ```
 
 Both compile against Minecraft 26.3 and produce separately named Fabric or

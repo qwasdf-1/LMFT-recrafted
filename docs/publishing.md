@@ -5,10 +5,11 @@ This is an adaptation of the *workflow* used in
 [qwasdf-1/soul-link](https://github.com/qwasdf-1/soul-link), tailored to
 LMFT's verified universal Minecraft 26.x artifacts.
 
-**Status:** Publishing automation is being staged. No public marketplace
-project is automatically created, and no releases or uploads are made when
-this document is committed. Publishing requires a new version tag plus the
-corresponding GitHub Actions secrets/variables.
+**Status:** The end-to-end release automation is operational. The first
+alpha `v1.2.0-alpha.1` successfully published both universal JARs to
+GitHub, Modrinth and CurseForge on November 24, 2026. A later stable
+release still requires a **new** corresponding version tag. Ordinary
+commits and pull requests do not publish marketplace versions.
 
 ## Release contract
 
@@ -81,14 +82,18 @@ ownership) is managed on the marketplace itself, not by this pipeline.
    `main` (the release workflow rejects unrelated or mismatched tags).
 3. `.github/workflows/release.yml` builds both universal 26.x JARs using
    Java 25 and the correct Gradle version for each loader.
-4. Only after **both** builds succeed, the release job verifies the expected
-   two JARs and SHA-256 checksums, extracts the version changelog, and creates
-   a GitHub Release. Alpha/beta/RC tags are prereleases.
-5. The release job dispatches the Modrinth and CurseForge workflows on `main`
+4. Before publication, the release gate downloads those exact compiled
+   JARs and installs them unchanged on five standalone Minecraft versions
+   **per loader** (ten servers). Every test asserts recovered tag membership,
+   repeated broken/clean reloads and NeoForge removal behavior.
+5. Only after **both** builds **and all ten binary cross-loading checks**
+   succeed, the release job verifies both JARs, writes SHA-256 checksums,
+   extracts the version changelog, and creates a GitHub Release. Alpha/beta/RC tags are prereleases.
+6. The release job dispatches the Modrinth and CurseForge workflows on `main`
    with the tagged release name. Those publishers download the *immutable*
    GitHub Release assets and verify SHA-256 hashes before contacting either
    marketplace.
-6. Each marketplace publisher creates **one version per loader**, with the
+7. Each marketplace publisher creates **one version per loader**, with the
    complete tested Minecraft 26.x target list. Use Actions **Run workflow**
    with an existing release tag to retry a failed marketplace upload.
 
@@ -167,3 +172,29 @@ matching version family and ignores the unknown category.
 
 Unknown or conflicting categories still produce an error instead of a
 guess. This behavior is covered by release resolver unit tests.
+
+## Stable release acceptance criteria
+
+A normal `vMAJOR.MINOR.PATCH` version (no `-alpha`, `-beta`, `-rc`)
+is published as a **release** on Modrinth and CurseForge, not a prerelease.
+
+Promote a tested preview to stable when all of the following hold:
+
+- The scope and supported Minecraft versions are explicitly documented,
+  with no claim of untested future releases or universal third-party mod
+  compatibility.
+- Dedicated-server tests are green for Fabric and NeoForge on all five
+  advertised Minecraft versions, and multiplayer join/reload notification
+  behavior is verified on Minecraft 26.3 on both loaders.
+- The **two actual release artifacts**, not separately rebuilt version-pinned
+  jars, pass recovery, reload and NeoForge-removal checks in ten isolated
+  standalone Minecraft servers, and their metadata/embedded license notices
+  are verified.
+- Known release-blocking bugs are resolved, with no regression from the
+  preceding preview; marketplace credentials and project metadata are valid.
+- The release changelog accurately describes changes and known limitations;
+  the version tag points to a commit merged into `main`.
+
+This release gate verifies vanilla/loader interoperability, **not** every
+possible third-party mod combination. Alpha is not a guarantee of stable
+field experience; continue monitoring and issue-fix releases after launch.

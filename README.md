@@ -28,14 +28,20 @@ Minecraft 26.x uses **Java 25** and the independent builds under `modern/26.3/`.
 - `.github/workflows/modern-26.3.yml` and `modern-26.x-compatibility.yml`: dedicated-server tag membership, reload, missing-entry and NeoForge removal tests.
 - `.github/workflows/multiplayer-notifications.yml`: two actual connected players, with operator-only, public, disabled and JVM-suppressed warning delivery checks.
 
-These are tested development artifacts; check GitHub Releases for published builds. Do not install the original LMFT and LMFT-recrafted together: both use the `lmft` mod ID.
+**Download:** [LMFT-recrafted releases](https://github.com/qwasdf-1/LMFT-recrafted/releases).
+Install the Fabric JAR with Fabric or the NeoForge JAR with NeoForge,
+on the server; clients do not need to install LMFT-recrafted.
+Do not install the original LMFT and LMFT-recrafted together: both use
+the `lmft` mod ID. Minecraft 26.4 and later versions are not yet covered.
 
 ### Publishing
 
-Releases for Minecraft 26.x are built from signed-off version tags on `main`.
-The release workflow produces **one Fabric JAR and one NeoForge JAR**, adds
-checksums to a GitHub Release and dispatches Modrinth and CurseForge uploads
-when their own marketplace projects and API credentials are configured.
+Releases for Minecraft 26.x are built from version tags on `main`.
+The workflow produces **one Fabric JAR and one NeoForge JAR**, runs real
+standalone-server recovery/reload checks using the **exact two compiled
+binaries** on all five supported Minecraft versions per loader, generates
+SHA-256 checksums, and publishes to GitHub, Modrinth and CurseForge only
+when the release gate succeeds.
 
 See [automated publishing setup](docs/publishing.md) for the one-time secrets,
 project IDs, release process and retry rules. Development and PR builds never
