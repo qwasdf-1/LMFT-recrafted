@@ -127,3 +127,56 @@ jobs:
           PY
           fi
           echo "Release candidate $jar metadata verified; no publish performed"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: "lmft-candidate-${{ matrix.loader }}"
+          path: dist/*.jar
+          if-no-files-found: error
+          retention-days: 7
+
+
+  universal-binary-cross-load:
+    needs: candidate-binaries
+    name: "Release JAR ${{ matrix.loader }} on Minecraft ${{ matrix.mc }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { loader: fabric, mc: '26.1',   pack: 101, neo: '-' }
+          - { loader: fabric, mc: '26.1.1', pack: 101, neo: '-' }
+          - { loader: fabric, mc: '26.1.2', pack: 101, neo: '-' }
+          - { loader: fabric, mc: '26.2',   pack: 107, neo: '-' }
+          - { loader: fabric, mc: '26.3',   pack: 121, neo: '-' }
+          - { loader: neoforge, mc: '26.1',   pack: 101, neo: '26.1.0.19-beta' }
+          - { loader: neoforge, mc: '26.1.1', pack: 101, neo: '26.1.1.15-beta' }
+          - { loader: neoforge, mc: '26.1.2', pack: 101, neo: '26.1.2.129' }
+          - { loader: neoforge, mc: '26.2',   pack: 107, neo: '26.2.0.95' }
+          - { loader: neoforge, mc: '26.3',   pack: 121, neo: '26.3.0.115' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/download-artifact@v4
+        with:
+          name: "lmft-candidate-${{ matrix.loader }}"
+          path: dist
+      - name: Probe actual universal binary on a real server and repeated reloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          jar="$(python3 release/manifest.py file --loader "${{ matrix.loader }}")"
+          test -f "dist/$jar"
+          bash release/test_universal.sh \
+            "${{ matrix.loader }}" "${{ matrix.mc }}" \
+            "${{ matrix.pack }}" "${{ matrix.neo }}" "dist/$jar"
+      - name: Preserve cross-loading logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "crossload-universal-binary-cross-load-${{ matrix.loader }}-${{ matrix.mc }}"
+          path: universal-server/server.log
+          if-no-files-found: ignore

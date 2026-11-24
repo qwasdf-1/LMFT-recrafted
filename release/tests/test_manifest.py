@@ -15,6 +15,13 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(target["compilation_target"], "26.3")
         self.assertEqual(len(target["minecraft_versions"]), 5)
 
+    def test_current_release_is_stable(self):
+        version, target = manifest.config()
+        self.assertEqual(version, "1.2.0")
+        self.assertEqual(manifest.channel(version), "release")
+        self.assertEqual(target["minecraft_versions"],
+            ["26.1", "26.1.1", "26.1.2", "26.2", "26.3"])
+
     def test_artifact_naming(self):
         self.assertEqual(
             manifest.jar_name("1.2.0-alpha.1", "fabric"),
