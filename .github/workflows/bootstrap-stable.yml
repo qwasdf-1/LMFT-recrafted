@@ -1,0 +1,79 @@
+name: Bootstrap LMFT 1.2.0 stable release
+
+# One-time, SHA-locked request branch. This workflow is intentionally not
+# merged into main. The existing release.yml performs all builds and uploads.
+on:
+  push:
+    branches:
+      - release/launch-v1.2.0
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: bootstrap-lmft-v1.2.0
+  cancel-in-progress: false
+
+jobs:
+  create-tag-and-launch:
+    if: github.repository == 'qwasdf-1/LMFT-recrafted'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Pin release to validated main and require a fresh tag
+        id: guard
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PINNED_MAIN_SHA: 97d2925793277cadb74dbbac6baadc4c6bceb4aa
+          RELEASE_TAG: v1.2.0
+        run: |
+          set -euo pipefail
+          # A single request commit atop the exact verified main commit.
+          request_parent="$(git rev-parse HEAD^)"
+          current_main="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          if [[ "$request_parent" != "$PINNED_MAIN_SHA" || "$current_main" != "$PINNED_MAIN_SHA" ]]; then
+            echo "Main or launcher parent moved; refusing to tag the wrong commit" >&2
+            exit 1
+          fi
+          version="$(python3 release/manifest.py version --tag "$RELEASE_TAG")"
+          [[ "$version" == "1.2.0" ]] || {
+            echo "Release version mismatch" >&2
+            exit 1
+          }
+          python3 -m unittest discover -s release/tests -v
+          python3 release/manifest.py notes > "$RUNNER_TEMP/notes.md"
+          test -s "$RUNNER_TEMP/notes.md"
+          if [[ -n "$(git ls-remote --tags origin "refs/tags/$RELEASE_TAG")" ]]; then
+            echo "The release tag already exists; refusing a second launch" >&2
+            exit 1
+          fi
+          if gh release view "$RELEASE_TAG" --repo "$GH_REPO" >/dev/null 2>&1; then
+            echo "The release already exists; refusing a second launch" >&2
+            exit 1
+          fi
+          echo "Tagging pinned, validated main commit $PINNED_MAIN_SHA"
+      - name: Create annotated tag and explicitly dispatch release pipeline
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PINNED_MAIN_SHA: 97d2925793277cadb74dbbac6baadc4c6bceb4aa
+          RELEASE_TAG: v1.2.0
+        run: |
+          set -euo pipefail
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              tag -a "$RELEASE_TAG" "$PINNED_MAIN_SHA" \
+              -m "LMFT-recrafted $RELEASE_TAG (Minecraft 26.x alpha)"
+          git push origin "refs/tags/$RELEASE_TAG"
+
+          # GitHub suppresses push workflows from GITHUB_TOKEN-created tags.
+          # A workflow_dispatch targeted at that *existing tag* does run.
+          gh workflow run release.yml --repo "$GH_REPO" --ref "$RELEASE_TAG"
+          echo "Dispatched release workflow on $RELEASE_TAG"
+          echo "https://github.com/$GH_REPO/actions/workflows/release.yml"
