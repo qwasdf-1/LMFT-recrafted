@@ -3,6 +3,10 @@ name: Release universal LMFT 26.x
 on:
   push:
     tags: ["v*"]
+  # Allows a release tag created by our one-time GitHub Actions tagger to
+  # explicitly start the pipeline. GitHub suppresses push-triggered workflows
+  # for tags created with GITHUB_TOKEN.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -14,6 +18,8 @@ concurrency:
 
 jobs:
   validate:
+    # workflow_dispatch must target an existing tag, not main or a branch.
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.meta.outputs.version }}
