@@ -14,7 +14,10 @@ import sys
 from manifest import config
 
 KNOWN_ENVIRONMENT_IDS = {"client": 9638, "server": 9639}
-MINECRAFT_TYPE = re.compile(r"^minecraft(?:\s+(\d+(?:\.\d+)*(?:\.x)?))?$", re.I)
+# CurseForge Minecraft version *categories* are sometimes named only "26.2"
+# rather than "Minecraft 26.2". The API is already scoped to Minecraft.
+# Do not infer a version from a missing/unknown category ID.
+MINECRAFT_TYPE = re.compile(r"^(?:minecraft(?:\s+|-))?(\d+(?:\.\d+)*)(?:\.x)?$", re.I)
 
 
 def exact_matches(data, needle):
@@ -36,24 +39,26 @@ def find_exact(data, needle, *, optional=False):
 def minecraft_category_score(version_type, mc):
     """Return type specificity if it describes a Minecraft release category.
 
-    Minecraft 26.1 covers 26.1 and the 26.1.x hotfixes; Minecraft 26.2
-    covers 26.2, but not 26.1. A more specific matching category wins.
-    Bukkit/Spigot/other projects sharing a version string never qualify.
+    CurseForge may label a version family simply "26.2" (as well as
+    "Minecraft 26.2"). A 26.1 family covers 26.1.x hotfixes but excludes
+    26.2. The most specific matching family wins. Bukkit/Spigot/other
+    named categories and unknown gameVersionTypeIDs are not eligible.
     """
     name = str(version_type.get("name") or "").strip()
+    if name.casefold() == "minecraft":
+        return 0
     match = MINECRAFT_TYPE.fullmatch(name)
     if not match:
-        # The official type slug can carry the label when name is absent.
-        slug = str(version_type.get("slug") or "")
-        if name or not slug.lower().startswith("minecraft-"):
+        # Only use a slug as fallback when the type name is absent. A
+        # non-Minecraft label (e.g. "Bukkit 26.2") is an explicit exclusion.
+        slug = str(version_type.get("slug") or "").strip()
+        if name or not slug.casefold().startswith("minecraft-"):
             return None
         suffix = slug[len("minecraft-"):].replace("-", ".")
-        match = MINECRAFT_TYPE.fullmatch("Minecraft " + suffix)
+        match = MINECRAFT_TYPE.fullmatch(suffix)
         if not match:
             return None
     family = match.group(1)
-    if family is None:
-        return 0
     parts = family.removesuffix(".x").split(".")
     target = mc.split(".")
     if target[:len(parts)] != parts:

@@ -80,6 +80,74 @@ class CurseForgeVersionsTests(unittest.TestCase):
         versions = DUPLICATES + [{"id": 209, "name": "26.1", "gameVersionTypeID": 104}]
         self.assertEqual(minecraft_version_id(versions, "26.1", types), 16083)
 
+    def test_bare_numeric_26_2_category_from_live_failure(self):
+        # User-reported live CurseForge data. 16498 is independently
+        # confirmed as the 26.2 Minecraft upload-version ID; 16500 has a
+        # type ID absent from the version-types response.
+        versions = [
+            {"id": 16498, "name": "26.2", "gameVersionTypeID": 86297},
+            {"id": 16500, "name": "26.2", "gameVersionTypeID": 1},
+        ]
+        version_types = [{"id": 86297, "name": "26.2", "slug": "26-2"}]
+        self.assertEqual(minecraft_version_id(versions, "26.2", version_types), 16498)
+
+    def test_unknown_category_cannot_replace_numeric_minecraft_type(self):
+        versions = [{"id": 16500, "name": "26.2", "gameVersionTypeID": 1}]
+        with self.assertRaisesRegex(ValueError, "gameVersionTypeID"):
+            minecraft_version_id(versions, "26.2", [{"id": 86297, "name": "26.2"}])
+
+    def test_bare_numeric_family_applies_to_hotfixes_only(self):
+        categories = [
+            {"id": 86296, "name": "26.1"},
+            {"id": 86297, "name": "26.2"},
+        ]
+        versions = [
+            {"id": 310, "name": "26.1.2", "gameVersionTypeID": 86296},
+            {"id": 311, "name": "26.1.2", "gameVersionTypeID": 86297},
+        ]
+        self.assertEqual(minecraft_version_id(versions, "26.1.2", categories), 310)
+        with self.assertRaisesRegex(ValueError, "gameVersionTypeID"):
+            minecraft_version_id(versions[1:], "26.1.2", categories)
+
+    def test_full_release_resolution_with_numeric_category_names(self):
+        version_types = [
+            {"id": 86296, "name": "26.1"},
+            {"id": 86297, "name": "26.2"},
+            {"id": 86298, "name": "26.3"},
+        ]
+        category_by_version = {
+            "26.1": 86296, "26.1.1": 86296, "26.1.2": 86296,
+            "26.2": 86297, "26.3": 86298,
+        }
+        versions = [
+            dict(version, gameVersionTypeID=category_by_version[version["name"]])
+            if version["name"] in category_by_version else version
+            for version in SAMPLE
+        ]
+        versions = [
+            version for version in versions
+            if not (version["name"] == "26.2" and version["id"] == 103)
+        ] + [
+            {"id": 16498, "name": "26.2", "gameVersionTypeID": 86297},
+            {"id": 16500, "name": "26.2", "gameVersionTypeID": 1},
+        ]
+        for loader in ("fabric", "neoforge"):
+            result = resolve(versions, loader, version_types=version_types)
+            self.assertTrue({100, 101, 102, 104, 16498}.issubset(result))
+            self.assertNotIn(16500, result)
+
+    def test_numeric_minecraft_type_remains_ambiguous_if_two_match(self):
+        versions = [
+            {"id": 16498, "name": "26.2", "gameVersionTypeID": 86297},
+            {"id": 17000, "name": "26.2", "gameVersionTypeID": 99999},
+        ]
+        types = [
+            {"id": 86297, "name": "26.2"},
+            {"id": 99999, "name": "Minecraft 26.2"},
+        ]
+        with self.assertRaisesRegex(ValueError, "Could not uniquely identify"):
+            minecraft_version_id(versions, "26.2", types)
+
     def test_two_valid_minecraft_types_fail_closed(self):
         types = TYPES + [{"id": 104, "name": "Minecraft 26.1", "slug": "minecraft-26-1-copy"}]
         versions = DUPLICATES + [{"id": 209, "name": "26.1", "gameVersionTypeID": 104}]

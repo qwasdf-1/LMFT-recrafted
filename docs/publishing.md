@@ -153,3 +153,17 @@ fails closed and prints the candidate IDs and category names.
 `CURSEFORGE_GAME_VERSIONS` remains an optional, manually verified
 override for unusual API metadata; it should not be needed simply because
 another category uses the same Minecraft version name.
+
+
+### Numeric-only CurseForge release categories
+
+CurseForge's Minecraft-scoped `/api/game/version-types` endpoint may name a
+Minecraft release family simply `26.2`, rather than `Minecraft 26.2`.
+The version resolver recognizes either form. In the reported 26.2 case,
+version ID `16498` belongs to type `86297` (category name `26.2`),
+while a second record `16500` points to type ID `1`, absent from the
+version-type table. The resolver selects `16498` from the explicitly
+matching version family and ignores the unknown category.
+
+Unknown or conflicting categories still produce an error instead of a
+guess. This behavior is covered by release resolver unit tests.
