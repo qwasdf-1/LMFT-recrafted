@@ -102,6 +102,23 @@ files differently; the workflow treats explicit duplicate errors as skipped
 rather than silently uploading more files. Verify CurseForge's listing after
 an interrupted upload.
 
+## Correcting existing CurseForge file environment tags
+
+The manual workflow **Repair CurseForge environment tags** previews changes
+by default. Set the repository secret `CURSEFORGE_API_KEY` to a Core API read
+key; the existing `CURSEFORGE_TOKEN` author token is used only when applying
+updates. Select optional comma-separated file IDs for a pilot, or leave them
+blank to scan all visible runtime files of LMFT-recrafted project 1827006.
+Review the preview, then run again with `apply` enabled. Run another preview
+after CurseForge refreshes to verify. The repair uses the in-place update
+endpoint; it never reuploads JARs or changes their release type.
+
+The repair deliberately stops if the read API does not expose all five
+Minecraft version tags, Java 25, the correct loader, and an environment tag.
+In that case inspect the file in the CurseForge author dashboard rather than
+guessing the missing tags. Do not rerun the normal publisher to fix existing
+metadata: duplicate upload responses do not modify existing files.
+
 ## Licensing
 
 The project has finalized **Apache-2.0 for LMFT-recrafted contributions**
