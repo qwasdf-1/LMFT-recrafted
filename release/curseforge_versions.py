@@ -106,7 +106,7 @@ def minecraft_version_id(data, mc, version_types=None):
     )
 
 
-def resolve(data, loader, overrides=None, environment="both", version_types=None):
+def resolve(data, loader, overrides=None, environment="server", version_types=None):
     _version, release = config()
     if loader not in release["loaders"]:
         raise ValueError("Unsupported loader " + loader)
@@ -131,13 +131,12 @@ def resolve(data, loader, overrides=None, environment="both", version_types=None
     java = find_exact(data, "Java 25", optional=True)
     if java:
         selected.append(java)
-    envs = ["client", "server"] if environment == "both" else [environment]
-    if any(x not in ("client", "server") for x in envs):
-        raise ValueError("CURSEFORGE_ENVIRONMENT must be client, server or both")
-    for env in envs:
-        selected.append(find_exact(data, env, optional=True)
-                        or KNOWN_ENVIRONMENT_IDS[env])
-    return sorted(set(selected))
+    # Legacy callers may still pass "both"; this project is server-only regardless.
+    if environment not in ("client", "server", "both"):
+        raise ValueError("Invalid legacy environment value")
+    client_id = find_exact(data, "client", optional=True) or KNOWN_ENVIRONMENT_IDS["client"]
+    server_id = find_exact(data, "server", optional=True) or KNOWN_ENVIRONMENT_IDS["server"]
+    return sorted((set(selected) - {client_id, KNOWN_ENVIRONMENT_IDS["client"]}) | {server_id})
 
 
 def main():
@@ -146,7 +145,7 @@ def main():
     parser.add_argument("--version-types", type=Path)
     parser.add_argument("--loader", choices=("fabric", "neoforge"), required=True)
     parser.add_argument("--overrides", default="")
-    parser.add_argument("--environment", default="both")
+    parser.add_argument("--environment", default="server")
     args = parser.parse_args()
     overrides = json.loads(args.overrides) if args.overrides else {}
     if not isinstance(overrides, dict):
