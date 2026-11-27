@@ -105,19 +105,30 @@ an interrupted upload.
 ## Correcting existing CurseForge file environment tags
 
 The manual workflow **Repair CurseForge environment tags** previews changes
-by default. Set the repository secret `CURSEFORGE_API_KEY` to a Core API read
-key; the existing `CURSEFORGE_TOKEN` author token is used only when applying
-updates. Select optional comma-separated file IDs for a pilot, or leave them
-blank to scan all visible runtime files of LMFT-recrafted project 1827006.
-Review the preview, then run again with `apply` enabled. Run another preview
-after CurseForge refreshes to verify. The repair uses the in-place update
-endpoint; it never reuploads JARs or changes their release type.
+by default. It uses the existing `CURSEFORGE_TOKEN` author token and the
+built-in GitHub Actions token with read-only Actions/contents permissions.
+No CurseForge Core API key is required.
 
-The repair deliberately stops if the read API does not expose all five
-Minecraft version tags, Java 25, the correct loader, and an environment tag.
-In that case inspect the file in the CurseForge author dashboard rather than
-guessing the missing tags. Do not rerun the normal publisher to fix existing
-metadata: duplicate upload responses do not modify existing files.
+The committed `.github/scripts/curseforge-repair-files.json` records public
+file IDs. The workflow also discovers uploads from retained CurseForge
+publisher job logs. It prefers the original numeric game-version tags
+where logged; otherwise it reconstructs compatibility from immutable
+release targets and the authenticated author game-version catalog.
+It resolves numeric IDs by Minecraft release category rather than guessing
+from duplicate version names.
+
+Run with `apply` unchecked, optionally entering comma-separated file IDs
+for a pilot. Inspect the full proposed tag set. To apply reconstructed
+metadata, explicitly enable `allow_reconstructed` as well as `apply`.
+This may restore an intended Java tag that was absent at upload, so review
+the preview before proceeding. The API update includes only the file ID
+and game version IDs, not a JAR, changelog, relations or release type.
+
+This is not a complete live inventory or a read of current file tags.
+Expired logs and unindexed files may require adding verified rows to the
+manifest; compare the discovered IDs and resulting tags with the CurseForge
+author dashboard. Do not rerun the normal publisher to fix existing tags:
+duplicate uploads do not update existing metadata.
 
 ## Licensing
 
