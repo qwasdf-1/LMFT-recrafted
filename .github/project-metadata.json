@@ -1,0 +1,12 @@
+{
+  "curseforge_id": 1827006,
+  "summary": "Server-side tag recovery that preserves valid Minecraft tag entries when a mod or datapack references missing entries.",
+  "intro": false,
+  "sections": [
+    "## LMFT-recrafted",
+    "### License"
+  ],
+  "lead": "LMFT-recrafted prevents a missing required tag entry from causing Minecraft to discard an entire tag. Valid entries are retained, helping avoid broken gameplay when mods or datapacks reference unavailable content.",
+  "install": "Install the Fabric JAR on Fabric or the NeoForge JAR on NeoForge, on the server or single-player host. Remote clients do not need LMFT-recrafted. Do not install the original LMFT alongside this fork because both use the lmft mod ID. Use the marketplace's file compatibility information to choose the correct version.",
+  "wiki": null
+}

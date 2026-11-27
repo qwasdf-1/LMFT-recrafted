@@ -224,3 +224,32 @@ Promote a tested preview to stable when all of the following hold:
 This release gate verifies vanilla/loader interoperability, **not** every
 possible third-party mod combination. Alpha is not a guarantee of stable
 field experience; continue monitoring and issue-fix releases after launch.
+
+## Project-page metadata synchronization
+
+Run **Sync marketplace project metadata** from Actions on `main`.
+The default preview renders a `marketplace-metadata` artifact with the
+summary, curated README sections, detected SPDX license, and source,
+issue and applicable documentation links for both marketplaces.
+Edit `.github/project-metadata.json` to choose the README sections and
+short summary/installation copy; relative Markdown links become absolute
+GitHub links. The script fails closed if the LICENSE text changes from the
+recognized repository license.
+
+For Modrinth, the existing `MODRINTH_TOKEN` additionally needs
+`PROJECT_WRITE` permission (retain existing read and version-create
+permissions). After preview, enable `apply` and choose `modrinth` or
+`both`. The workflow validates the configured project source URL, patches
+only differing supported fields, and reads back the result.
+
+For CurseForge, the official upload API does not document project-page
+metadata editing. Use the generated Markdown and fields in the author
+dashboard for summary, license and links. An optional
+`curseforge_experimental` checkbox attempts only the community-reported
+description endpoint with the existing author token; this is unverified
+and requires manual readback. No Core API key or browser cookie is needed.
+Do not enable it without reviewing the preview. An endpoint failure does
+not affect release publishing.
+
+Project title, slug, categories, galleries, visibility, ownership and
+release/file metadata are intentionally outside this workflow.
