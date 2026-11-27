@@ -37,7 +37,7 @@ class CurseForgeVersionsTests(unittest.TestCase):
         self.assertIn(51, ids)
         self.assertNotIn(52, ids)
         self.assertIn(61, ids)
-        self.assertIn(9638, ids)
+        self.assertNotIn(9638, ids)
         self.assertIn(9639, ids)
 
     def test_neoforge_server_only(self):
@@ -46,6 +46,15 @@ class CurseForgeVersionsTests(unittest.TestCase):
         self.assertNotIn(51, ids)
         self.assertIn(9639, ids)
         self.assertNotIn(9638, ids)
+
+    def test_legacy_environment_and_override_cannot_add_client(self):
+        for loader in ("fabric", "neoforge"):
+            for environment in ("client", "server", "both"):
+                ids = resolve(SAMPLE, loader, overrides={"26.1": [100, 9638]},
+                              environment=environment)
+                self.assertTrue(set(range(100, 105)).issubset(ids))
+                self.assertIn(9639, ids)
+                self.assertNotIn(9638, ids)
 
     def test_missing_game_version_fails_closed(self):
         with self.assertRaises(ValueError):
