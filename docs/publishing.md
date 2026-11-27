@@ -66,9 +66,7 @@ existing original LMFT CurseForge project ID. If game-version IDs cannot be
 resolved automatically, set `CURSEFORGE_GAME_VERSIONS` to a JSON object
 mapping each supported Minecraft version to its official CurseForge numeric
 game version ID, for example `{"26.1":[12345],"26.2":[23456]}`.
-Optional `CURSEFORGE_ENVIRONMENT` can be `client`, `server`, or `both`
-(default `both`). If the project ID variable is absent, CurseForge
-publishing is skipped.
+CurseForge environment tags are always **Server** only, matching Modrinth.\nThe obsolete `CURSEFORGE_ENVIRONMENT` variable is ignored; clients do not\nneed the mod. Numeric overrides cannot add the Client tag. If the project\nID variable is absent, CurseForge publishing is skipped.
 
 **Do not use the same project IDs as Terra Rasa, Soul Link or upstream LMFT.**
 Marketplace project metadata (name, description, license, galleries and
