@@ -1,0 +1,17 @@
+{
+  "project_id": 1827006,
+  "files": [
+    {
+      "id": 9800881,
+      "jar": "lmft-fabric-26.x-1.2.0-26.x.jar"
+    },
+    {
+      "id": 9800879,
+      "jar": "lmft-neoforge-26.x-1.2.0-26.x.jar"
+    },
+    {
+      "id": 9784749,
+      "jar": "lmft-fabric-26.x-1.2.0-alpha.1-26.x.jar"
+    }
+  ]
+}
