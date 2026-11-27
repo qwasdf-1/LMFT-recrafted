@@ -31,7 +31,6 @@ jobs:
       LOADER: ${{ matrix.loader }}
       CURSEFORGE_PROJECT_ID: ${{ vars.CURSEFORGE_PROJECT_ID }}
       CURSEFORGE_GAME_VERSIONS: ${{ vars.CURSEFORGE_GAME_VERSIONS }}
-      CURSEFORGE_ENVIRONMENT: ${{ vars.CURSEFORGE_ENVIRONMENT || 'both' }}
       CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
     steps:
       - uses: actions/checkout@v4
@@ -81,9 +80,13 @@ jobs:
             --version-types "$RUNNER_TEMP/curseforge-version-types.json" \
             --loader "$LOADER" \
             --overrides "$CURSEFORGE_GAME_VERSIONS" \
-            --environment "$CURSEFORGE_ENVIRONMENT" \
+            --environment server \
             > "$RUNNER_TEMP/curseforge-ids.json"
-          jq -e 'length >= 7' "$RUNNER_TEMP/curseforge-ids.json" >/dev/null
+          # Tagged resolver code may predate the server-only policy. Normalize the
+          # final metadata here as well, including legacy numeric overrides.
+          jq -c '(. - [9638]) + [9639] | sort | unique' "$RUNNER_TEMP/curseforge-ids.json" > "$RUNNER_TEMP/curseforge-server-ids.json"
+          mv "$RUNNER_TEMP/curseforge-server-ids.json" "$RUNNER_TEMP/curseforge-ids.json"
+          jq -e 'length >= 7 and index(9639) != null and index(9638) == null' "$RUNNER_TEMP/curseforge-ids.json" >/dev/null
       - name: Publish universal 26.x file to CurseForge
         shell: bash
         run: |
